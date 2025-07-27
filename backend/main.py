@@ -13,7 +13,7 @@ app = FastAPI()
 def get_diaries():
     conn = get_db()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM DiaryEntry")
+    cursor.execute("SELECT * FROM diaryentry")
     result = cursor.fetchall()
     return result
 
