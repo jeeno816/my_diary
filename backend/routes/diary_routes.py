@@ -5,7 +5,7 @@ from datetime import datetime
 
 from backend.db import db, get_db  # get_db가 따로 정의되어 있어야 함
 from backend.schemas.diary import DiaryCreate
-from models import DiaryEntry, Photo, Person, AIQueryLog
+from backend.models import DiaryEntry, Photo, Person, AIQueryLog
 
 router = APIRouter(prefix="/diaries", tags=["diary"])
 
