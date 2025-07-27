@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
-from schemas.diary import DiaryCreate
-from models import DiaryEntry, 
-from db import db  # db.py에서 만든 MySQL 연결 객체
 
-router = APIRouter(prefix="/", tags=["diary"])
+from db import db, get_db  # get_db가 따로 정의되어 있어야 함
+from schemas.diary import DiaryCreate
+from models import DiaryEntry, Photo, Person, AIQueryLog
+
+router = APIRouter(prefix="/diaries", tags=["diary"])
 
 # 일기 업로드
 @router.post("/diaries/")
