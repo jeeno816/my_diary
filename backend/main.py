@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI
 from . import db
-from routes.diary_routes import router as diary_router
+from .routes.diary_routes import router as diary_router
 # from routes.photo_routes import router as photo_router
 # from routes.person_routes import router as person_router
 # from routes.ai_logs_routes import router as ai_logs_router
