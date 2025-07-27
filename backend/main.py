@@ -1,6 +1,6 @@
 # main.py
 from fastapi import FastAPI
-from . import db
+from .db import get_db
 from .routes.diary_routes import router as diary_router
 # from routes.photo_routes import router as photo_router
 # from routes.person_routes import router as person_router
@@ -11,7 +11,8 @@ app = FastAPI()
 
 @app.get("/")
 def get_diaries():
-    cursor = db.cursor(dictionary=True)
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT * FROM DiaryEntry")
     result = cursor.fetchall()
     return result
