@@ -14,7 +14,7 @@ def create_diary(entry: DiaryCreate):
 
     # DiaryEntry 저장
     cursor.execute(
-        "INSERT INTO DiaryEntry (date, content, mood, created_at, updated_at) VALUES (%s, %s, %s, NOW(), NOW())",
+        "INSERT INTO diaryentry (date, content, mood, created_at, updated_at) VALUES (%s, %s, %s, NOW(), NOW())",
         (entry.date, entry.content, entry.mood)
     )
     diary_id = cursor.lastrowid
@@ -22,21 +22,21 @@ def create_diary(entry: DiaryCreate):
     # Photo 저장
     for path in entry.photos:
         cursor.execute(
-            "INSERT INTO Photo (diary_id, file_path) VALUES (%s, %s)",
+            "INSERT INTO photo (diary_id, file_path) VALUES (%s, %s)",
             (diary_id, path)
         )
 
     # Person 저장
     for person in entry.people:
         cursor.execute(
-            "INSERT INTO Person (diary_id, name, phone) VALUES (%s, %s, %s)",
+            "INSERT INTO person (diary_id, name, phone) VALUES (%s, %s, %s)",
             (diary_id, person["name"], person["phone"])
         )
 
     # AIQueryLog 저장
     for q in entry.questions:
         cursor.execute(
-            "INSERT INTO AIQueryLog (diary_id, question, answer) VALUES (%s, %s, %s)",
+            "INSERT INTO aiquerylog (diary_id, question, answer) VALUES (%s, %s, %s)",
             (diary_id, q["question"], q["answer"])
         )
 
@@ -51,21 +51,21 @@ def get_diary(diary_id: int):
     cursor = conn.cursor(dictionary=True)
 
     # DiaryEntry 조회
-    cursor.execute("SELECT * FROM DiaryEntry WHERE id = %s", (diary_id,))
+    cursor.execute("SELECT * FROM diaryentry WHERE id = %s", (diary_id,))
     diary = cursor.fetchone()
     if not diary:
         raise HTTPException(status_code=404, detail="Diary not found")
 
     # 사진 조회
-    cursor.execute("SELECT * FROM Photo WHERE diary_id = %s", (diary_id,))
+    cursor.execute("SELECT * FROM photo WHERE diary_id = %s", (diary_id,))
     diary["photos"] = cursor.fetchall()
 
     # 사람 조회
-    cursor.execute("SELECT * FROM Person WHERE diary_id = %s", (diary_id,))
+    cursor.execute("SELECT * FROM person WHERE diary_id = %s", (diary_id,))
     diary["people"] = cursor.fetchall()
 
     # AI 질문/답변 조회
-    cursor.execute("SELECT * FROM AIQueryLog WHERE diary_id = %s", (diary_id,))
+    cursor.execute("SELECT * FROM aiquerylog WHERE diary_id = %s", (diary_id,))
     diary["ai_logs"] = cursor.fetchall()
 
     return diary
@@ -77,7 +77,7 @@ def check_diary_exists(date: str):  # "YYYY-MM-DD"
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM DiaryEntry WHERE date = %s", (date,))
+    cursor.execute("SELECT COUNT(*) FROM diaryentry WHERE date = %s", (date,))
     count = cursor.fetchone()[0]
 
     return {"date": date, "exists": count > 0}
