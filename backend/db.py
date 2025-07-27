@@ -2,16 +2,16 @@
 import mysql.connector
 
 db = mysql.connector.connect(
-    host="localhost",
+    host="mysql.railway.internal",
     user="root",
-    password="Dlwldms0708@",
-    database="my_diary"
+    password="ikuHPVzXkwJJyWBWlfiGJWOmuatObixw@",
+    database="railway"
 )
 
 def get_db():
     return mysql.connector.connect(
-        host="localhost",
+        host="mysql.railway.internal",
         user="root",
-        password="Dlwldms0708@",
-        database="my_diary"
+        password="ikuHPVzXkwJJyWBWlfiGJWOmuatObixw@",
+        database="railway"
     )
