@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
 
-from db import db, get_db  # get_db가 따로 정의되어 있어야 함
+from backend.db import db, get_db  # get_db가 따로 정의되어 있어야 함
 from schemas.diary import DiaryCreate
 from models import DiaryEntry, Photo, Person, AIQueryLog
 
