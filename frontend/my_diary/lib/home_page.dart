@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'login_page.dart';
+import 'photo_selection_modal.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,6 +15,7 @@ class _HomePageState extends State<HomePage> {
   late DateTime _focusedDay;
   late DateTime _selectedDay;
   late CalendarFormat _calendarFormat;
+  Map<DateTime, List<String>> _photosByDate = {};
 
   @override
   void initState() {
@@ -29,105 +31,37 @@ class _HomePageState extends State<HomePage> {
       _focusedDay = focusedDay;
     });
     
-    // 날짜 선택 시 실행될 기능 (나중에 확장 가능)
-    _showDayOptions(selectedDay);
+    // 날짜 선택 시 사진 선택 모달 열기
+    _showPhotoSelectionModal(selectedDay);
   }
 
-  void _showDayOptions(DateTime selectedDay) {
+  void _showPhotoSelectionModal(DateTime selectedDay) {
+    final normalizedDate = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
+    final existingPhotos = _photosByDate[normalizedDate] ?? [];
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${selectedDay.year}년 ${selectedDay.month}월 ${selectedDay.day}일',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildOptionButton(
-                    icon: Icons.edit,
-                    label: '일기 작성',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: 일기 작성 페이지로 이동
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일 일기 작성 기능')),
-                      );
-                    },
-                  ),
-                  _buildOptionButton(
-                    icon: Icons.photo_camera,
-                    label: '사진 추가',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: 사진 추가 기능
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일 사진 추가 기능')),
-                      );
-                    },
-                  ),
-                  _buildOptionButton(
-                    icon: Icons.view_day,
-                    label: '상세 보기',
-                    onTap: () {
-                      Navigator.pop(context);
-                      // TODO: 해당 날짜 상세 페이지로 이동
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일 상세 보기 기능')),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+        return PhotoSelectionModal(
+          selectedDate: selectedDay,
+          existingPhotos: existingPhotos,
         );
       },
-    );
+    ).then((selectedPhotos) {
+      if (selectedPhotos != null) {
+        setState(() {
+          _photosByDate[normalizedDate] = selectedPhotos;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일에 ${selectedPhotos.length}장의 사진이 저장되었습니다.')),
+        );
+      }
+    });
   }
 
-  Widget _buildOptionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.blue,
-              size: 30,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildEventMarker(DateTime date) {
     // 각 달의 15일에만 사진 썸네일 표시
@@ -341,7 +275,7 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '날짜를 터치하여 일기를 작성하거나 사진을 추가하세요\n15일에는 Sample.jpeg 썸네일이 표시됩니다',
+              '날짜를 터치하여 사진을 선택하세요\n15일에는 Sample.jpeg 썸네일이 표시됩니다',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
