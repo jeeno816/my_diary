@@ -1,4 +1,5 @@
 # db.py
+# 도메인 수정
 import mysql.connector
 
 db = mysql.connector.connect(
