@@ -1,9 +1,182 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:table_calendar/table_calendar.dart';
 import 'login_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late DateTime _focusedDay;
+  late DateTime _selectedDay;
+  late CalendarFormat _calendarFormat;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDay = DateTime.now();
+    _selectedDay = DateTime.now();
+    _calendarFormat = CalendarFormat.month;
+  }
+
+  void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
+    setState(() {
+      _selectedDay = selectedDay;
+      _focusedDay = focusedDay;
+    });
+    
+    // 날짜 선택 시 실행될 기능 (나중에 확장 가능)
+    _showDayOptions(selectedDay);
+  }
+
+  void _showDayOptions(DateTime selectedDay) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${selectedDay.year}년 ${selectedDay.month}월 ${selectedDay.day}일',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildOptionButton(
+                    icon: Icons.edit,
+                    label: '일기 작성',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: 일기 작성 페이지로 이동
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일 일기 작성 기능')),
+                      );
+                    },
+                  ),
+                  _buildOptionButton(
+                    icon: Icons.photo_camera,
+                    label: '사진 추가',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: 사진 추가 기능
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일 사진 추가 기능')),
+                      );
+                    },
+                  ),
+                  _buildOptionButton(
+                    icon: Icons.view_day,
+                    label: '상세 보기',
+                    onTap: () {
+                      Navigator.pop(context);
+                      // TODO: 해당 날짜 상세 페이지로 이동
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일 상세 보기 기능')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOptionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.blue,
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventMarker(DateTime date) {
+    // 각 달의 15일에만 사진 썸네일 표시
+    if (date.day == 15) {
+      return Container(
+        margin: const EdgeInsets.only(top: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 사진 썸네일만 표시
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.asset(
+                  'assets/images/Sample.jpeg',
+                  fit: BoxFit.cover,
+                  cacheWidth: 60,
+                  errorBuilder: (context, error, stackTrace) {
+                    print('Image load error: $error');
+                    return Container(
+                      color: Colors.grey.withOpacity(0.2),
+                      child: const Icon(
+                        Icons.image,
+                        size: 15,
+                        color: Colors.grey,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // 다른 날짜에는 아무것도 표시하지 않음
+    return const SizedBox.shrink();
+  }
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -27,39 +200,156 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.book,
-              size: 100,
-              color: Colors.blue,
+      body: Column(
+        children: [
+          // 사용자 정보
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 25,
+                  backgroundColor: Colors.blue.withOpacity(0.2),
+                  child: Icon(
+                    Icons.person,
+                    color: Colors.blue,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${user?.email ?? '사용자'}님',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '오늘도 좋은 하루 되세요!',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            Text(
-              '환영합니다!',
-              style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          
+          // 달력
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              '${user?.email ?? '사용자'}님',
-              style: Theme.of(context).textTheme.titleLarge,
+            child: TableCalendar(
+              firstDay: DateTime.utc(2020, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              calendarFormat: _calendarFormat,
+              selectedDayPredicate: (day) {
+                return isSameDay(_selectedDay, day);
+              },
+              onDaySelected: _onDaySelected,
+              onFormatChanged: (format) {
+                setState(() {
+                  _calendarFormat = format;
+                });
+              },
+              onPageChanged: (focusedDay) {
+                _focusedDay = focusedDay;
+              },
+              calendarStyle: const CalendarStyle(
+                selectedDecoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                ),
+                todayDecoration: BoxDecoration(
+                  color: Colors.orange,
+                  shape: BoxShape.circle,
+                ),
+                markerDecoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                // 날짜 셀의 높이를 늘려서 썸네일이 잘 보이도록 조정
+                cellMargin: EdgeInsets.all(2),
+                cellPadding: EdgeInsets.only(bottom: 12), // 하단 패딩 더 늘리기
+              ),
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: true,
+                titleCentered: true,
+                formatButtonShowsNext: false,
+                formatButtonDecoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                formatButtonTextStyle: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+              ),
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, date, events) {
+                  return _buildEventMarker(date);
+                },
+                // 날짜 셀의 높이를 조정
+                defaultBuilder: (context, date, _) {
+                  // 15일에는 숫자를 숨기고 사진만 표시
+                  if (date.day == 15) {
+                    return Container(
+                      margin: const EdgeInsets.all(1),
+                      child: const Center(
+                        child: SizedBox.shrink(), // 숫자 숨기기
+                      ),
+                    );
+                  }
+                  return Container(
+                    margin: const EdgeInsets.all(1),
+                    child: Center(
+                      child: Text(
+                        '${date.day}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-            const SizedBox(height: 40),
-            const Text(
-              '다이어리 앱에 오신 것을 환영합니다!',
-              style: TextStyle(fontSize: 16),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          const Spacer(),
+          
+          // 하단 안내
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '날짜를 터치하여 일기를 작성하거나 사진을 추가하세요\n15일에는 Sample.jpeg 썸네일이 표시됩니다',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
-            const Text(
-              '여기에 다이어리 기능을 추가할 수 있습니다.',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
