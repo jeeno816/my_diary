@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from db import get_db
+from backend.db import get_db
 import os
 
 app = FastAPI()
