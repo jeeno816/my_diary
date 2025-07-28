@@ -2,7 +2,7 @@
 import mysql.connector
 
 db = mysql.connector.connect(
-    host="mysql.railway.internal",
+    host="mydiary-main.up.railway.app",
     user="root",
     password="ikuHPVzXkwJJyWBWlfiGJWOmuatObixw",
     database="railway"
@@ -10,7 +10,7 @@ db = mysql.connector.connect(
 
 def get_db():
     return mysql.connector.connect(
-        host="mysql.railway.internal",
+        host="mydiary-main.up.railway.app",
         user="root",
         password="ikuHPVzXkwJJyWBWlfiGJWOmuatObixw",
         database="railway"
