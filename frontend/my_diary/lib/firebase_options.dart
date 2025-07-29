@@ -59,11 +59,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB3NyaeVHmrN2mprVikBokYt3FihrplnC8',
-    appId: '1:1000676228056:ios:37bc8fa19e9f0dac3b50ad',
+    appId: '1:1000676228056:ios:2d7c89976a1c4cd43b50ad',
     messagingSenderId: '1000676228056',
     projectId: 'my-diary-59119',
     storageBucket: 'my-diary-59119.firebasestorage.app',
-    iosClientId: '1000676228056-s3a6sj9v4ni5qovdqn3h04knch27i2k3.apps.googleusercontent.com',
-    iosBundleId: 'com.mad4.myDiary',
+    iosClientId: '1000676228056-napp2t0h57gcu8fv4oflknt1khftq69q.apps.googleusercontent.com',
+    iosBundleId: 'com.example.myDiary',
   );
 }
