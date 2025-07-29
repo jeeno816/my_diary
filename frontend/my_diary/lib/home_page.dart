@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'login_page.dart';
 import 'photo_contact_mood_page.dart';
+import 'diary_view_page.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 
 class HomePage extends StatefulWidget {
@@ -67,6 +68,18 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${selectedDay.month}월 ${selectedDay.day}일에 ${photoCount}장의 사진, ${contactCount}명의 연락처, ${moodDescription} 기분이 저장되었습니다.'),
+          ),
+        );
+        // 일기 상세 페이지로 이동
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DiaryViewPage(
+              date: selectedDay,
+              photos: List<String>.from(result['photos']),
+              contacts: List<Contact>.from(result['contacts']),
+              mood: result['mood'],
+            ),
           ),
         );
       }
