@@ -1,4 +1,13 @@
-# import
+from models.diary import DiaryEntry
+from fastapi import APIRouter, Depends
+from schemas.diary import AIQueryLogCreate
+from services.ai_service import fetch_ai_logs, generate_ai_reply
+from dependencies.db import get_db
+from typing import Annotated
+from mysql.connector.connection_cext import CMySQLConnection
+from dependencies.auth import get_current_user
+
+router = APIRouter(prefix="/ai_logs", tags=["AI Logs"])
 
 # 대화 내용 불러오기
 @router.get("/ai_logs/{diary_id}/ai_logs")
@@ -14,7 +23,7 @@ async def get_ai_logs(
 @router.post("/ai_logs/{diary_id}/ai_logs")
 async def chat_with_ai(
     diary_id: int,
-    input: ChatInputSchema,
+    input: AIQueryLogCreate,
     db: Annotated[CMySQLConnection, Depends(get_db)],
     user_id: int = Depends(get_current_user)
 ):

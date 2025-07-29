@@ -1,9 +1,9 @@
 from fastapi import FastAPI
-from backend.db import get_db
-from backend.routes.diary_routes import router as diary_router
-from backend.routes.photo_routes import router as photo_router
-from backend.routes.person_routes import router as person_router
-from backend.routes.ai_routes import router as ai_router
+from db import get_db
+from routes.diary_routes import router as diary_router
+from routes.photo_routes import router as photo_router
+from routes.person_routes import router as person_router
+from routes.ai_routes import router as ai_router
 
 app = FastAPI()
 

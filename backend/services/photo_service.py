@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+from fastapi import UploadFile 
 
 def delete_photo_by_id(diary_id: int, photo_id: int, db):
     cursor = db.cursor()
