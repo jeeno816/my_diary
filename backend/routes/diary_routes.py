@@ -1,0 +1,100 @@
+from models.diary import DiaryEntry
+import firebase_admin
+from firebase_admin import auth
+from fastapi import APIRouter, Depends, HTTPException, status
+from schemas.diary import DiaryEntryCreate, DiaryUpdateSchema
+from services.diary_service import (
+    create_diary_entry,
+    get_diary_entry,
+    diary_exists_by_date,
+    get_diary_days_in_month,
+    update_diary_content,
+    delete_diary,
+)
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from datetime import datetime
+from sqlmodel import Session
+from dependencies.db import get_db_session
+from dependencies.auth import get_current_user
+
+router = APIRouter(prefix="/diaries", tags=["Diary"])
+auth_scheme = HTTPBearer()
+
+# ✅ Firebase UID 추출 함수 (중복 제거용)
+def get_firebase_uid(token: HTTPAuthorizationCredentials) -> str:
+    try:
+        decoded_token = auth.verify_id_token(token.credentials)
+        return decoded_token.get("uid")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+
+# ✅ 일기 생성
+@router.post("/")
+async def create_diary(
+    payload: DiaryEntryCreate,
+    token: HTTPAuthorizationCredentials = Depends(auth_scheme)
+):
+    uid = get_firebase_uid(token)
+    diary_id = create_diary_entry(payload.date, uid)
+    return {"diaryId": diary_id}
+
+# ✅ 일기 불러오기
+@router.get("/{diary_id}", response_model=DiaryEntry)
+def read_diary(
+    diary_id: int,
+    token: HTTPAuthorizationCredentials = Depends(auth_scheme)
+):
+    diary = get_diary_entry(diary_id)
+    if not diary:
+        raise HTTPException(status_code=404, detail="Diary entry not found")
+    return diary
+
+# ✅ 날짜 기반 일기 유무
+@router.get("/date/{target_date}")
+def check_diary_exists(
+    target_date: datetime.date,
+    token: HTTPAuthorizationCredentials = Depends(auth_scheme)
+):
+    uid = get_firebase_uid(token)
+    exists = diary_exists_by_date(target_date, uid)
+    return {"exists": exists}
+
+# ✅ 월별 일기 유무 + 썸네일
+@router.get("/month/{year_month}")
+def diary_days_by_month(
+    year_month: str,
+    token: HTTPAuthorizationCredentials = Depends(auth_scheme)
+):
+    try:
+        target_date = datetime.strptime(year_month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="날짜 형식은 yyyy-mm 이어야 합니다.")
+
+    uid = get_firebase_uid(token)
+    result = get_diary_days_in_month(target_date.year, target_date.month, uid)
+    return {"diary_days": result}
+
+# ✅ 일기 삭제
+@router.delete("/{id}")
+async def delete_diary(
+    id: int,
+    db: Session = Depends(get_db_session),
+    user_id: str = Depends(get_current_user)  # 이건 이미 Firebase UID
+):
+    success = delete_diary(id=id, db=db, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Diary not found or not authorized.")
+    return {"is_successful": True}
+
+# ✅ 일기 본문 수정
+@router.patch("/{id}")
+async def update_diary_content(
+    id: int,
+    body: DiaryUpdateSchema,
+    db: Session = Depends(get_db_session),
+    user_id: str = Depends(get_current_user)
+):
+    success = update_diary_content(id=id, content=body.text, db=db, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Diary not found or not authorized.")
+    return {"is_successful": True}
