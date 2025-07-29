@@ -12,7 +12,7 @@ from services.diary_service import (
     delete_diary,
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from datetime import datetime
+from datetime import datetime, date
 from sqlmodel import Session
 from dependencies.db import get_db_session
 from dependencies.auth import get_current_user
@@ -52,7 +52,7 @@ def read_diary(
 # ✅ 날짜 기반 일기 유무
 @router.get("/date/{target_date}")
 def check_diary_exists(
-    target_date: datetime.date,
+    target_date: date,
     token: HTTPAuthorizationCredentials = Depends(auth_scheme)
 ):
     uid = get_firebase_uid(token)
