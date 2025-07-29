@@ -5,11 +5,15 @@ import 'package:image_picker/image_picker.dart';
 class PhotoSelectionModal extends StatefulWidget {
   final DateTime selectedDate;
   final List<String> existingPhotos;
+  final void Function(List<String>)? onPhotosChanged;
+  final bool isPageView;
 
   const PhotoSelectionModal({
     super.key,
     required this.selectedDate,
     this.existingPhotos = const [],
+    this.onPhotosChanged,
+    this.isPageView = false,
   });
 
   @override
@@ -33,7 +37,6 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
         isLoading = true;
       });
 
-      // iOS에서 다중 사진 선택을 위한 설정
       final List<XFile> images = await _picker.pickMultiImage(
         maxWidth: 1920,
         maxHeight: 1080,
@@ -44,14 +47,21 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
         setState(() {
           selectedPhotos.addAll(images.map((image) => image.path));
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${images.length}장의 사진이 추가되었습니다.')),
-        );
+        if (widget.onPhotosChanged != null) {
+          widget.onPhotosChanged!(selectedPhotos);
+        }
+        if (!widget.isPageView) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${images.length}장의 사진이 추가되었습니다.')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('사진 선택 중 오류가 발생했습니다: $e')),
-      );
+      if (!widget.isPageView) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('사진 선택 중 오류가 발생했습니다: $e')),
+        );
+      }
     } finally {
       setState(() {
         isLoading = false;
@@ -63,24 +73,38 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
     setState(() {
       selectedPhotos.removeAt(index);
     });
+    if (widget.onPhotosChanged != null) {
+      widget.onPhotosChanged!(selectedPhotos);
+    }
   }
 
   void _showImageSourceDialog() {
-    // 바로 갤러리에서 사진 선택 (카메라 선택지 없음)
     _pickImage(ImageSource.gallery);
+  }
+
+  void _proceedToContactSelection() {
+    if (widget.isPageView) {
+      if (widget.onPhotosChanged != null) {
+        widget.onPhotosChanged!(selectedPhotos);
+      }
+    } else {
+      Navigator.pop(context, selectedPhotos);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
+      height: widget.isPageView ? null : MediaQuery.of(context).size.height * 0.8,
+      decoration: widget.isPageView
+          ? null
+          : const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
       child: Column(
         children: [
           // 헤더
@@ -88,10 +112,12 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.blue.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
+              borderRadius: widget.isPageView
+                  ? null
+                  : const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
             ),
             child: Row(
               children: [
@@ -122,10 +148,11 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
+                if (!widget.isPageView)
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
               ],
             ),
           ),
@@ -253,34 +280,32 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
                   ),
           ),
 
-          // 하단 버튼들
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('취소'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: selectedPhotos.isEmpty ? null : () {
-                      // TODO: 선택된 사진들을 저장하는 로직
-                      Navigator.pop(context, selectedPhotos);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+          // 하단 버튼 (PageView 모드에서는 숨김)
+          if (!widget.isPageView)
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('취소'),
                     ),
-                    child: const Text('저장'),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: selectedPhotos.isEmpty ? null : _proceedToContactSelection,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('다음'),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

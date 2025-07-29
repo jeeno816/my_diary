@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'login_page.dart';
-import 'photo_selection_modal.dart';
+import 'photo_contact_mood_page.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +17,8 @@ class _HomePageState extends State<HomePage> {
   late DateTime _selectedDay;
   late CalendarFormat _calendarFormat;
   Map<DateTime, List<String>> _photosByDate = {};
+  Map<DateTime, List<Contact>> _contactsByDate = {};
+  Map<DateTime, String> _moodsByDate = {};
 
   @override
   void initState() {
@@ -30,92 +33,65 @@ class _HomePageState extends State<HomePage> {
       _selectedDay = selectedDay;
       _focusedDay = focusedDay;
     });
-    
-    // 날짜 선택 시 사진 선택 모달 열기
-    _showPhotoSelectionModal(selectedDay);
+    _showPhotoContactMoodPage(selectedDay);
   }
 
-  void _showPhotoSelectionModal(DateTime selectedDay) {
+  void _showPhotoContactMoodPage(DateTime selectedDay) {
     final normalizedDate = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
     final existingPhotos = _photosByDate[normalizedDate] ?? [];
+    final existingContacts = _contactsByDate[normalizedDate] ?? [];
+    final existingMood = _moodsByDate[normalizedDate];
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return PhotoSelectionModal(
+        return PhotoContactMoodPage(
           selectedDate: selectedDay,
-          existingPhotos: existingPhotos,
+          initialPhotos: existingPhotos,
+          initialContacts: existingContacts,
+          initialMood: existingMood,
         );
       },
-    ).then((selectedPhotos) {
-      if (selectedPhotos != null) {
+    ).then((result) {
+      if (result != null) {
         setState(() {
-          _photosByDate[normalizedDate] = selectedPhotos;
+          _photosByDate[normalizedDate] = result['photos'];
+          _contactsByDate[normalizedDate] = result['contacts'];
+          _moodsByDate[normalizedDate] = result['mood'];
         });
+        final photoCount = result['photos'].length;
+        final contactCount = result['contacts'].length;
+        final moodDescription = _getMoodDescription(result['mood']);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${selectedDay.month}월 ${selectedDay.day}일에 ${selectedPhotos.length}장의 사진이 저장되었습니다.')),
+          SnackBar(
+            content: Text('${selectedDay.month}월 ${selectedDay.day}일에 ${photoCount}장의 사진, ${contactCount}명의 연락처, ${moodDescription} 기분이 저장되었습니다.'),
+          ),
         );
       }
     });
   }
 
-
-
-  Widget _buildEventMarker(DateTime date) {
-    // 각 달의 15일에만 사진 썸네일 표시
-    if (date.day == 15) {
-      return Container(
-        margin: const EdgeInsets.only(top: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // 사진 썸네일만 표시
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.asset(
-                  'assets/images/Sample.jpeg',
-                  fit: BoxFit.cover,
-                  cacheWidth: 60,
-                  errorBuilder: (context, error, stackTrace) {
-                    print('Image load error: $error');
-                    return Container(
-                      color: Colors.grey.withOpacity(0.2),
-                      child: const Icon(
-                        Icons.image,
-                        size: 15,
-                        color: Colors.grey,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    // 다른 날짜에는 아무것도 표시하지 않음
-    return const SizedBox.shrink();
+  String _getMoodDescription(String? mood) {
+    if (mood == null) return '선택 안함';
+    final moodDescriptions = {
+      '😊': '행복',
+      '😄': '기쁨',
+      '🤗': '포옹',
+      '😐': '보통',
+      '😌': '편안',
+      '😴': '졸림',
+      '😔': '슬픔',
+      '😢': '우는',
+      '😡': '화남',
+    };
+    return moodDescriptions[mood] ?? '선택 안함';
   }
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Diary'),
@@ -136,7 +112,6 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          // 사용자 정보
           Container(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -175,8 +150,6 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          
-          // 달력
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
@@ -221,9 +194,8 @@ class _HomePageState extends State<HomePage> {
                   color: Colors.red,
                   shape: BoxShape.circle,
                 ),
-                // 날짜 셀의 높이를 늘려서 썸네일이 잘 보이도록 조정
                 cellMargin: EdgeInsets.all(2),
-                cellPadding: EdgeInsets.only(bottom: 12), // 하단 패딩 더 늘리기
+                cellPadding: EdgeInsets.only(bottom: 12),
               ),
               headerStyle: const HeaderStyle(
                 formatButtonVisible: true,
@@ -242,14 +214,12 @@ class _HomePageState extends State<HomePage> {
                 markerBuilder: (context, date, events) {
                   return _buildEventMarker(date);
                 },
-                // 날짜 셀의 높이를 조정
                 defaultBuilder: (context, date, _) {
-                  // 15일에는 숫자를 숨기고 사진만 표시
                   if (date.day == 15) {
                     return Container(
                       margin: const EdgeInsets.all(1),
                       child: const Center(
-                        child: SizedBox.shrink(), // 숫자 숨기기
+                        child: SizedBox.shrink(), // Hide number for 15th
                       ),
                     );
                   }
@@ -266,16 +236,11 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          
-          const SizedBox(height: 16),
-          
           const Spacer(),
-          
-          // 하단 안내
           Container(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '날짜를 터치하여 사진을 선택하세요\n15일에는 Sample.jpeg 썸네일이 표시됩니다',
+              '날짜를 터치하여 사진/연락처/기분을 선택하세요\n15일에는 Sample.jpeg 썸네일이 표시됩니다',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey[600],
@@ -286,5 +251,41 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildEventMarker(DateTime date) {
+    if (date.day == 15) {
+      return Container(
+        margin: const EdgeInsets.only(top: 4),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.asset(
+              'assets/images/Sample.jpeg',
+              fit: BoxFit.cover,
+              cacheWidth: 60,
+              errorBuilder: (context, error, stackTrace) {
+                print('Image load error: $error');
+                return Container(
+                  color: Colors.grey.withOpacity(0.2),
+                  child: const Icon(
+                    Icons.image,
+                    size: 15,
+                    color: Colors.grey,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 } 
