@@ -126,6 +126,7 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
       builder: (context) => AIDialogModal(
         initialMessages: _chatMessages,
         diaryId: widget.diaryId,
+        onDiaryUpdated: _loadDiaryData,
       ),
     );
   }
@@ -299,11 +300,13 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
 class AIDialogModal extends StatefulWidget {
   final List<Map<String, dynamic>> initialMessages;
   final int diaryId;
+  final VoidCallback? onDiaryUpdated;
 
   const AIDialogModal({
     super.key,
     required this.initialMessages,
     required this.diaryId,
+    this.onDiaryUpdated,
   });
 
   @override
@@ -428,10 +431,24 @@ class _AIDialogModalState extends State<AIDialogModal> {
         // is_edit_text가 true인지 확인
         print('🔍 is_edit_text 확인: ${data['is_edit_text']}');
         print('🔍 edited_text 확인: ${data['edited_text']}');
+        print('🔍 edited_text 타입: ${data['edited_text'].runtimeType}');
+        print('🔍 edited_text 길이: ${data['edited_text'].toString().length}');
         
         if (data['is_edit_text'] == true && data['edited_text'] != null && data['edited_text'].toString().isNotEmpty) {
-          print('📝 일기 저장 모달 표시: ${data['edited_text']}');
-          _showSaveDiaryModal(data['edited_text']);
+          print('📝 일기 저장 모달 표시 시작');
+          print('📝 저장할 내용: ${data['edited_text']}');
+          
+          // iOS에서 모달 충돌을 방지하기 위해 약간의 지연 후 모달 표시
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (mounted) {
+              _showSaveDiaryModal(data['edited_text']);
+            }
+          });
+        } else {
+          print('❌ 모달 표시 조건 불충족:');
+          print('  - is_edit_text: ${data['is_edit_text']}');
+          print('  - edited_text null: ${data['edited_text'] == null}');
+          print('  - edited_text empty: ${data['edited_text'].toString().isEmpty}');
         }
       } else {
         setState(() {
@@ -448,93 +465,136 @@ class _AIDialogModalState extends State<AIDialogModal> {
   }
 
   void _showSaveDiaryModal(String editedText) {
-    print('🔍 일기 저장 모달 호출됨');
-    showDialog(
-      context: context,
-      barrierDismissible: false, // 배경 터치로 닫기 방지
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('일기 저장'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('AI가 생성한 일기를 저장하시겠습니까?'),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  editedText,
-                  style: const TextStyle(fontSize: 14),
-                ),
+    print('🔍 일기 저장 모달 호출됨 - iOS/Android 공통');
+    
+    // iOS에서 모달이 안 뜨는 문제를 해결하기 위해 약간의 지연 추가
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false, // 배경 터치로 닫기 방지
+          builder: (BuildContext dialogContext) {
+            print('🔍 다이얼로그 빌더 실행됨');
+            return AlertDialog(
+              title: const Text('일기 저장'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('AI가 생성한 일기를 저장하시겠습니까?'),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      editedText,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                print('❌ 일기 저장 취소');
-                Navigator.of(context).pop();
-              },
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                print('💾 일기 저장 시작');
-                Navigator.of(context).pop();
-                _saveDiaryContent(editedText);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('저장'),
-            ),
-          ],
-        );
-      },
-    );
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    print('❌ 일기 저장 취소');
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('취소'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    print('💾 일기 저장 시작');
+                    Navigator.of(dialogContext).pop();
+                    _saveDiaryContent(editedText);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('저장'),
+                ),
+              ],
+            );
+          },
+        ).then((_) {
+          print('🔍 다이얼로그가 닫힘');
+        }).catchError((error) {
+          print('❌ 다이얼로그 표시 오류: $error');
+        });
+      } else {
+        print('❌ 위젯이 마운트되지 않음');
+      }
+    });
   }
 
   Future<void> _saveDiaryContent(String content) async {
     try {
+      print('💾 일기 내용 저장 시작: $content');
+      
       final token = await _getFirebaseToken();
-      if (token == null) return;
-
-      final response = await http.put(
-        Uri.parse('https://mydiary-main.up.railway.app/diaries/${widget.diaryId}'),
+      if (token == null) {
+        print('❌ Firebase 토큰 없음');
+        return;
+      }
+      
+      // PATCH API 호출
+      final url = 'https://mydiary-main.up.railway.app/diaries/${widget.diaryId}';
+      final response = await http.patch(
+        Uri.parse(url),
         headers: {
-          'Authorization': 'Bearer $token',
+          'accept': 'application/json',
           'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
         },
         body: json.encode({
-          'content': content,
+          'text': content,
         }),
       );
-
+      
+      print('📡 PATCH 응답 상태: ${response.statusCode}');
+      print('📡 PATCH 응답 내용: ${response.body}');
+      
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('일기가 성공적으로 저장되었습니다!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        final data = json.decode(response.body);
+        if (data['message'] == 'Diary content updated successfully') {
+          print('✅ 일기 내용 저장 성공');
+          
+          // 성공 메시지 표시
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('일기 내용이 저장되었습니다.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // 상세 페이지 새로고침
+          widget.onDiaryUpdated?.call();
+        } else {
+          print('❌ 예상하지 못한 응답: ${data['message']}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('저장 실패: ${data['message']}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } else {
+        print('❌ PATCH 요청 실패: ${response.statusCode}');
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('일기 저장에 실패했습니다.'),
+          SnackBar(
+            content: Text('저장 실패: ${response.statusCode}'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
+      print('❌ 일기 저장 중 오류: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('네트워크 오류: $e'),
+          content: Text('저장 중 오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
