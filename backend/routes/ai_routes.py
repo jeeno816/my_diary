@@ -1,10 +1,8 @@
-from backend.models.diary import DiaryEntry
 from fastapi import APIRouter, Depends, HTTPException
 from backend.schemas.diary import AIQueryLogCreate
 from backend.services.ai_service import fetch_ai_logs, generate_ai_reply
 from backend.dependencies.db import get_db
 from typing import Annotated
-from mysql.connector.connection_cext import CMySQLConnection
 import requests
 from pydantic import BaseModel
 import os
@@ -75,21 +73,21 @@ def generate_diary(req: PromptRequest):
         raise HTTPException(status_code=500, detail="Gemini 응답 파싱 오류")
 
 # 대화 내용 불러오기
-@router.get("/ai_logs/{diary_id}/ai_logs")
+@router.get("/{diary_id}")
 async def get_ai_logs_route(
     diary_id: int,
-    db: Annotated[CMySQLConnection, Depends(get_db)],
+    db: Annotated[object, Depends(get_db)],
     # user_id: int = Depends(get_current_user)
 ):
     logs = fetch_ai_logs(diary_id, db)
     return {"logs": logs}
 
 # 채팅
-@router.post("/ai_logs/{diary_id}/ai_logs")
+@router.post("/{diary_id}")
 async def chat_with_ai(
     diary_id: int,
     input: AIQueryLogCreate,
-    db: Annotated[CMySQLConnection, Depends(get_db)],
+    db: Annotated[object, Depends(get_db)],
     # user_id: int = Depends(get_current_user)
 ):
     # 임시로 AI 응답을 저장하는 로직

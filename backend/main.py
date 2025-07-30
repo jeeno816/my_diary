@@ -3,7 +3,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.diary_routes import router as diary_router
 from backend.routes.photo_routes import router as photo_router
-from backend.routes.person_routes import router as person_router
 from backend.routes.ai_routes import router as ai_router
 
 app = FastAPI(title="My Diary API", version="1.0.0")
@@ -23,5 +22,4 @@ app.mount("/resources", StaticFiles(directory="resources"), name="resources")
 # 라우터 등록
 app.include_router(diary_router)  # prefix 제거 (diary_routes.py에서 이미 /diaries 설정됨)
 app.include_router(photo_router, prefix="/photos")
-app.include_router(person_router, prefix="/people")
 app.include_router(ai_router, prefix="/ai")

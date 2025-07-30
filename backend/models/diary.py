@@ -16,9 +16,7 @@ class DiaryEntry(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     photos = relationship("Photo", back_populates="diary", cascade="all, delete-orphan")
-    people = relationship("Person", back_populates="diary", cascade="all, delete-orphan")
     queries = relationship("AIQueryLog", back_populates="diary", cascade="all, delete-orphan")
-    locations = relationship("LocationLog", back_populates="diary", cascade="all, delete-orphan")
     model_config = {
         "from_attributes": True  # ✅ Pydantic v2 호환
     }
@@ -40,19 +38,7 @@ class Photo(Base):
 
 
 
-class Person(Base):
-    __tablename__ = "Person"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    diary_id = Column(Integer, ForeignKey("DiaryEntry.id"))
-    name = Column(String(100))
-    relation = Column(String(100))
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    diary = relationship("DiaryEntry", back_populates="people")
-    model_config = {
-        "from_attributes": True  # ✅ Pydantic v2 호환
-    }
 
 
 

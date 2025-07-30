@@ -1,164 +1,142 @@
-import mysql.connector
 import calendar
 from datetime import date
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-def get_mysql_connection():
-    """MySQL 데이터베이스 연결을 반환합니다."""
-    return mysql.connector.connect(
-        host=os.getenv('DB_HOST'),
-        port=int(os.getenv('DB_PORT', 3306)),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASS'),
-        database=os.getenv('DB_NAME')
-    )
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from backend.dependencies.db import get_db_session
+from backend.models.diary import DiaryEntry, Photo, AIQueryLog
 
 # 일기 생성
 def create_diary_entry(date: date, user_id: str, content: str = "", mood: str = "") -> int:
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    sql = """
-        INSERT INTO DiaryEntry (date, content, mood, user_id, created_at, updated_at)
-        VALUES (%s, %s, %s, %s, NOW(), NOW())
-    """
-    cursor.execute(sql, (date, content, mood, user_id))
-    conn.commit()
-    diary_id = cursor.lastrowid
-    conn.close()
-    return diary_id
+    db = get_db_session()
+    try:
+        diary = DiaryEntry(
+            date=date,
+            user_id=user_id,
+            content=content,
+            mood=mood
+        )
+        db.add(diary)
+        db.commit()
+        db.refresh(diary)
+        print(f"✅ 일기 생성 성공! ID: {diary.id}")
+        return diary.id
+    except Exception as e:
+        print(f"❌ 일기 생성 실패: {e}")
+        db.rollback()
+        return 0
+    finally:
+        db.close()
 
 
 # 일기 불러오기
 def get_diary_entry(diary_id: int):
-    conn = get_mysql_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    cursor.execute("SELECT * FROM DiaryEntry WHERE id = %s", (diary_id,))
-    diary = cursor.fetchone()
-    if not diary:
-        conn.close()
-        return None
-
-    cursor.execute("SELECT * FROM Photo WHERE diary_id = %s", (diary_id,))
-    diary["photos"] = cursor.fetchall()
-
-    cursor.execute("SELECT * FROM Person WHERE diary_id = %s", (diary_id,))
-    diary["people"] = cursor.fetchall()
-
-    cursor.execute("SELECT * FROM AIQueryLog WHERE diary_id = %s", (diary_id,))
-    diary["queries"] = cursor.fetchall()
-
-    cursor.execute("SELECT * FROM LocationLog WHERE diary_id = %s", (diary_id,))
-    diary["locations"] = cursor.fetchall()
-
-    conn.close()
-    return diary
+    db = get_db_session()
+    try:
+        diary = db.query(DiaryEntry).filter(DiaryEntry.id == diary_id).first()
+        if not diary:
+            return None
+        
+        # 관계 데이터 로드
+        diary.photos = db.query(Photo).filter(Photo.diary_id == diary_id).all()
+        diary.queries = db.query(AIQueryLog).filter(AIQueryLog.diary_id == diary_id).all()
+        
+        return diary
+    finally:
+        db.close()
 
 
 # 날짜 기반 일기 유무 확인
 def diary_exists_by_date(target_date: date, user_id: str) -> bool:
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM DiaryEntry WHERE date = %s AND user_id = %s", (target_date, user_id))
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count > 0
+    db = get_db_session()
+    try:
+        count = db.query(DiaryEntry).filter(
+            DiaryEntry.date == target_date,
+            DiaryEntry.user_id == user_id
+        ).count()
+        return count > 0
+    finally:
+        db.close()
 
 
 # 특정 달의 일기 존재 여부 및 대표 이미지
 def get_diary_days_in_month(year: int, month: int, user_id: str):
-    conn = get_mysql_connection()
-    cursor = conn.cursor(dictionary=True)
+    db = get_db_session()
+    try:
+        # 해당 월의 일기들 조회
+        entries = db.query(DiaryEntry).filter(
+            DiaryEntry.user_id == user_id,
+            text("YEAR(date) = :year AND MONTH(date) = :month")
+        ).params(year=year, month=month).all()
+        
+        # 썸네일 정보 포함하여 조회
+        diary_map = {}
+        for entry in entries:
+            # 각 일기의 첫 번째 사진을 썸네일로 사용
+            thumbnail = db.query(Photo.path).filter(
+                Photo.diary_id == entry.id
+            ).first()
+            diary_map[entry.date.day] = thumbnail[0] if thumbnail else None
+        
+        _, last_day = calendar.monthrange(year, month)
+        result = []
 
-    cursor.execute("""
-        SELECT date, 
-               (SELECT path FROM Photo WHERE diary_id = DiaryEntry.id LIMIT 1) as thumbnail
-        FROM DiaryEntry
-        WHERE YEAR(date) = %s AND MONTH(date) = %s AND user_id = %s
-    """, (year, month, user_id))
-    entries = cursor.fetchall()
-    conn.close()
+        for day in range(1, last_day + 1):
+            result.append({
+                "day": day,
+                "has_diary": day in diary_map,
+                "thumbnail": diary_map.get(day)
+            })
 
-    diary_map = {entry["date"].day: entry["thumbnail"] for entry in entries}
-    _, last_day = calendar.monthrange(year, month)
-    result = []
-
-    for day in range(1, last_day + 1):
-        result.append({
-            "day": day,
-            "has_diary": day in diary_map,
-            "thumbnail": diary_map.get(day)
-        })
-
-    return result
+        return result
+    finally:
+        db.close()
 
 
 # 일기 내용 수정
 def update_diary_content(id: int, content: str, db, user_id: str) -> bool:
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE DiaryEntry 
-        SET content = %s, updated_at = NOW() 
-        WHERE id = %s AND user_id = %s
-    """, (content, id, user_id))
-    conn.commit()
-    success = cursor.rowcount > 0
-    conn.close()
-    return success
+    db_session = get_db_session()
+    try:
+        diary = db_session.query(DiaryEntry).filter(
+            DiaryEntry.id == id,
+            DiaryEntry.user_id == user_id
+        ).first()
+        
+        if diary:
+            diary.content = content
+            db_session.commit()
+            return True
+        return False
+    except Exception as e:
+        print(f"❌ 일기 수정 실패: {e}")
+        db_session.rollback()
+        return False
+    finally:
+        db_session.close()
 
 
 # 일기 삭제
 def delete_diary(id: int, db, user_id: str) -> bool:
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    
+    db_session = get_db_session()
     try:
-        # 트랜잭션 시작
-        conn.start_transaction()
+        # 일기 조회
+        diary = db_session.query(DiaryEntry).filter(
+            DiaryEntry.id == id,
+            DiaryEntry.user_id == user_id
+        ).first()
         
-        # 1. 연결된 사진들 먼저 삭제
-        cursor.execute("DELETE FROM Photo WHERE diary_id = %s", (id,))
-        deleted_photos = cursor.rowcount
-        print(f"삭제된 사진 수: {deleted_photos}")
-        
-        # 2. 연결된 사람들 삭제
-        cursor.execute("DELETE FROM Person WHERE diary_id = %s", (id,))
-        deleted_people = cursor.rowcount
-        print(f"삭제된 사람 수: {deleted_people}")
-        
-        # 3. 연결된 AI 쿼리 로그 삭제
-        cursor.execute("DELETE FROM AIQueryLog WHERE diary_id = %s", (id,))
-        deleted_queries = cursor.rowcount
-        print(f"삭제된 AI 쿼리 수: {deleted_queries}")
-        
-        # 4. 연결된 위치 로그 삭제
-        cursor.execute("DELETE FROM LocationLog WHERE diary_id = %s", (id,))
-        deleted_locations = cursor.rowcount
-        print(f"삭제된 위치 로그 수: {deleted_locations}")
-        
-        # 5. 마지막으로 일기 삭제
-        cursor.execute("DELETE FROM DiaryEntry WHERE id = %s AND user_id = %s", (id, user_id))
-        success = cursor.rowcount > 0
-        
-        if success:
-            # 트랜잭션 커밋
-            conn.commit()
-            print(f"일기 {id}와 관련 데이터가 성공적으로 삭제되었습니다.")
-        else:
-            # 트랜잭션 롤백
-            conn.rollback()
+        if not diary:
             print(f"일기 {id}를 찾을 수 없거나 삭제할 권한이 없습니다.")
+            return False
         
-        return success
+        # CASCADE 설정으로 인해 관련 데이터는 자동 삭제됨
+        db_session.delete(diary)
+        db_session.commit()
+        print(f"일기 {id}와 관련 데이터가 성공적으로 삭제되었습니다.")
+        return True
         
     except Exception as e:
-        # 에러 발생 시 트랜잭션 롤백
-        conn.rollback()
-        print(f"일기 삭제 중 에러 발생: {e}")
+        print(f"❌ 일기 삭제 실패: {e}")
+        db_session.rollback()
         return False
     finally:
-        conn.close()
+        db_session.close()

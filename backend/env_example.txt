@@ -1,0 +1,10 @@
+# 데이터베이스 설정 - DB_URL 사용
+# pymysql 드라이버를 명시적으로 사용 (권장)
+DB_URL=mysql+pymysql://username:password@host:port/database_name
+
+# 또는 mysql://로 시작해도 자동으로 pymysql로 변환됩니다
+# DB_URL=mysql://username:password@host:port/database_name
+
+# 기타 환경 변수들
+SECRET_KEY=your-secret-key-here
+DEBUG=True 
