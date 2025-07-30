@@ -90,59 +90,7 @@ async def upload_photo(
         print(f"사진 업로드 실패: {e}")
         raise HTTPException(status_code=500, detail=f"사진 업로드 실패: {str(e)}")
 
-# 여러 사진 업로드
-@router.post("/{diary_id}/photos/batch")
-async def upload_multiple_photos(
-    diary_id: int,
-    photos: List[UploadFile] = File(...),
-    token: HTTPAuthorizationCredentials = Depends(auth_scheme)
-):
-    """
-    특정 일기에 여러 사진을 한번에 업로드합니다.
-    - diary_id: 일기 ID
-    - photos: 업로드할 사진 파일들
-    - token: Firebase 인증 토큰
-    """
-    try:
-        # 사용자 인증
-        uid = get_firebase_uid(token)
-        
-        # 일기 소유권 확인
-        if not verify_diary_ownership(diary_id, uid):
-            raise HTTPException(
-                status_code=403, 
-                detail="이 일기에 사진을 업로드할 권한이 없습니다. 자신의 일기인지 확인해주세요."
-            )
-        
-        # 여러 사진 업로드
-        uploaded_photos = []
-        for photo in photos:
-            try:
-                photo_id, photo_url, photo_description = await upload_photo_with_description(
-                    diary_id=diary_id,
-                    photo=photo,
-                    db=None
-                )
-                uploaded_photos.append({
-                    "photo_id": photo_id,
-                    "photo_url": photo_url,
-                    "photo_description": photo_description
-                })
-            except Exception as e:
-                print(f"개별 사진 업로드 실패: {e}")
-                # 개별 사진 실패해도 계속 진행
-        
-        return {
-            "uploaded_photos": uploaded_photos,
-            "total_count": len(uploaded_photos),
-            "message": f"{len(uploaded_photos)}장의 사진이 성공적으로 업로드되었습니다."
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"다중 사진 업로드 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"사진 업로드 실패: {str(e)}")
+
 
 # 사진 삭제    
 @router.delete("/{diary_id}/photos/{photo_id}")

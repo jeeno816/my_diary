@@ -24,5 +24,5 @@ app.mount("/resources", StaticFiles(directory=resources_dir), name="resources")
 
 # 라우터 등록
 app.include_router(diary_router)  # prefix 제거 (diary_routes.py에서 이미 /diaries 설정됨)
-app.include_router(photo_router, prefix="/photos")
+app.include_router(photo_router)  # prefix 제거 (photo_routes.py에서 이미 /photos 설정됨)
 app.include_router(ai_router, prefix="/ai")
