@@ -1,17 +1,34 @@
-from backend.db import get_db
+import mysql.connector
+import os
+from dotenv import load_dotenv
 
-def get_ai_logs(diary_id: int):
-    conn = get_db()
+load_dotenv()
+
+def get_mysql_connection():
+    """MySQL 데이터베이스 연결을 반환합니다."""
+    return mysql.connector.connect(
+        host=os.getenv('DB_HOST'),
+        port=int(os.getenv('DB_PORT', 3306)),
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASS'),
+        database=os.getenv('DB_NAME')
+    )
+
+def fetch_ai_logs(diary_id: int, db):
+    conn = get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT * FROM AIQueryLog WHERE diary_id = %s", (diary_id,))
-    return cursor.fetchall()
+    logs = cursor.fetchall()
+    conn.close()
+    return logs
 
-def insert_ai_log(diary_id: int, content: str, written_by: str):
-    conn = get_db()
+def generate_ai_reply(diary_id: int, input, db):
+    conn = get_mysql_connection()
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO AIQueryLog (diary_id, content, written_by)
         VALUES (%s, %s, %s)
-    """, (diary_id, content, written_by))
+    """, (diary_id, input.content, "user"))
     conn.commit()
-    return {"is_successful": True, "log_id": cursor.lastrowid}
+    conn.close()
+    return "AI 응답이 생성되었습니다."

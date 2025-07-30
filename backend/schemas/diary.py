@@ -61,16 +61,16 @@ class LocationLog(LocationLogCreate):
 
 
 class DiaryEntryCreate(BaseModel):
-    date: Optional[date] = None
-    content: str
-    mood: Optional[str] = None
+    date: date  # 필수 필드, YYYY-MM-DD 형식 (예: 2024-01-15)
+    content: str  # 필수 필드, 일기 내용
+    mood: Optional[str] = None  # 선택 필드, 기분 이모지 (예: 😊, 😄, 😔)
     photos: Optional[List[PhotoCreate]] = []
     people: Optional[List[PersonCreate]] = []
     queries: Optional[List[AIQueryLogCreate]] = []
     locations: Optional[List[LocationLogCreate]] = []
 
 class DiaryUpdateSchema(BaseModel):
-    text: str
+    text: str  # 수정할 일기 내용
 
 class DiaryEntry(DiaryEntryCreate):
     id: int

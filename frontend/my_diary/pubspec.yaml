@@ -14,6 +14,7 @@ dependencies:
   table_calendar: ^3.0.9
   image_picker: ^1.0.7
   flutter_contacts: ^1.1.7+1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
