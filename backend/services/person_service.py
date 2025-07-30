@@ -1,5 +1,5 @@
-from fastapi import HTTPException
-from db import get_db
+import mysql.connector
+from backend.db import get_db
 
 def create_person(diary_id: int, name: str, relation: str):
     conn = get_db()

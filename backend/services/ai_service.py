@@ -1,4 +1,4 @@
-from db import get_db
+from backend.db import get_db
 
 def get_ai_logs(diary_id: int):
     conn = get_db()

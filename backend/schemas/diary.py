@@ -14,7 +14,7 @@ class Photo(PhotoCreate):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PersonCreate(BaseModel):
@@ -28,7 +28,7 @@ class Person(PersonCreate):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class AIQueryLogCreate(BaseModel):
@@ -42,7 +42,7 @@ class AIQueryLog(AIQueryLogCreate):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class LocationLogCreate(BaseModel):
@@ -57,11 +57,11 @@ class LocationLog(LocationLogCreate):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class DiaryEntryCreate(BaseModel):
-    date: Optional[datetime.date] = None
+    date: Optional[date] = None
     content: str
     mood: Optional[str] = None
     photos: Optional[List[PhotoCreate]] = []
@@ -83,4 +83,4 @@ class DiaryEntry(DiaryEntryCreate):
     locations: List[LocationLog] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True

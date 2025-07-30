@@ -44,4 +44,18 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Environment variables and secrets
 .env
+*.json
+!package.json
+!pubspec.lock
+!analysis_options.yaml
+
+# Firebase Admin SDK
+firebase_admin_sdk.json
+*firebase-adminsdk*.json
+backend/firebase_admin_sdk.json
+
+# Google Services
+google-services.json
+GoogleService-Info.plist

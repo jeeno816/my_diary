@@ -1,22 +1,22 @@
-from models.diary import DiaryEntry
+from backend.models.diary import DiaryEntry
 from fastapi import APIRouter, Depends
-from schemas.diary import AIQueryLogCreate
-from services.ai_service import fetch_ai_logs, generate_ai_reply
-from dependencies.db import get_db
+from backend.schemas.diary import AIQueryLogCreate
+from backend.services.ai_service import get_ai_logs, insert_ai_log
+from backend.dependencies.db import get_db
 from typing import Annotated
 from mysql.connector.connection_cext import CMySQLConnection
-from dependencies.auth import get_current_user
+# from backend.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/ai_logs", tags=["AI Logs"])
 
 # 대화 내용 불러오기
 @router.get("/ai_logs/{diary_id}/ai_logs")
-async def get_ai_logs(
+async def get_ai_logs_route(
     diary_id: int,
     db: Annotated[CMySQLConnection, Depends(get_db)],
-    user_id: int = Depends(get_current_user)
+    # user_id: int = Depends(get_current_user)
 ):
-    logs = fetch_ai_logs(diary_id, db)
+    logs = get_ai_logs(diary_id)
     return {"logs": logs}
 
 # 채팅
@@ -25,7 +25,8 @@ async def chat_with_ai(
     diary_id: int,
     input: AIQueryLogCreate,
     db: Annotated[CMySQLConnection, Depends(get_db)],
-    user_id: int = Depends(get_current_user)
+    # user_id: int = Depends(get_current_user)
 ):
-    reply = generate_ai_reply(diary_id, input, db)
-    return {"reply": reply}
+    # 임시로 AI 응답을 저장하는 로직
+    result = insert_ai_log(diary_id, input.content, "user")
+    return {"reply": "AI 응답이 준비되었습니다.", "log_id": result["log_id"]}

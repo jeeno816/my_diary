@@ -1,11 +1,11 @@
-from models.diary import DiaryEntry
+from backend.models.diary import DiaryEntry
 from fastapi import APIRouter, Depends
-from schemas.diary import PersonCreate
-from services.person_service import create_person, remove_person
-from dependencies.db import get_db
+from backend.schemas.diary import PersonCreate
+from backend.services.person_service import create_person, delete_person
+from backend.dependencies.db import get_db
 from typing import Annotated
 from mysql.connector.connection_cext import CMySQLConnection
-from dependencies.auth import get_current_user
+# from backend.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/location_logs", tags=["Location Logs"])
 
@@ -14,19 +14,17 @@ router = APIRouter(prefix="/location_logs", tags=["Location Logs"])
 async def upload_person(
     diary_id: int,
     person: PersonCreate,
-    db: Annotated[CMySQLConnection, Depends(get_db)],
-    user_id: int = Depends(get_current_user)
+    # user_id: int = Depends(get_current_user)
 ):
-    person_id = create_person(diary_id, person, db)
-    return {"person_id": person_id}
+    result = create_person(diary_id, person.name, person.relation)
+    return {"person_id": result["person_id"]}
 
 # 연락처 삭제
 @router.delete("/people/{diary_id}/people/{id}")
-async def delete_person(
+async def delete_person_route(
     diary_id: int,
     id: int,
-    db: Annotated[CMySQLConnection, Depends(get_db)],
-    user_id: int = Depends(get_current_user)
+    # user_id: int = Depends(get_current_user)
 ):
-    success = remove_person(diary_id, id, db)
-    return {"is_successful": success}
+    result = delete_person(diary_id, id)
+    return {"is_successful": result["is_successful"]}

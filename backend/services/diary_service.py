@@ -1,7 +1,7 @@
 import mysql.connector
 import calendar
 from datetime import date
-from db import get_db
+from backend.db import get_db
 
 
 # 일기 생성
@@ -82,3 +82,29 @@ def get_diary_days_in_month(year: int, month: int, user_id: str):
         })
 
     return result
+
+
+# 일기 내용 수정
+def update_diary_content(id: int, content: str, db, user_id: str) -> bool:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE DiaryEntry 
+        SET content = %s, updated_at = NOW() 
+        WHERE id = %s AND user_id = %s
+    """, (content, id, user_id))
+    conn.commit()
+    success = cursor.rowcount > 0
+    conn.close()
+    return success
+
+
+# 일기 삭제
+def delete_diary(id: int, db, user_id: str) -> bool:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM DiaryEntry WHERE id = %s AND user_id = %s", (id, user_id))
+    conn.commit()
+    success = cursor.rowcount > 0
+    conn.close()
+    return success
