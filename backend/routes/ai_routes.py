@@ -5,6 +5,7 @@ from backend.services.ai_service import get_ai_logs, insert_ai_log
 from backend.dependencies.db import get_db
 from typing import Annotated
 from mysql.connector.connection_cext import CMySQLConnection
+import requests
 from pydantic import BaseModel
 import os
 # from backend.dependencies.auth import get_current_user
@@ -15,6 +16,37 @@ router = APIRouter(prefix="/ai_logs", tags=["AI Logs"])
 API_KEY = os.getenv("GEMINI_API_KEY")  # Railway면 환경변수 등록해줘야 함
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
 
+
+# Gemini와 채팅
+class ChatPrompt(BaseModel):
+    message: str
+
+@router.post("/chat")
+def chat_with_gemini(prompt: ChatPrompt):
+    body = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt.message}
+                ]
+            }
+        ]
+    }
+
+    headers = {"Content-Type": "application/json"}
+
+    response = requests.post(GEMINI_URL, headers=headers, json=body)
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="Gemini 호출 실패")
+
+    try:
+        content = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return {"response": content}
+    except:
+        raise HTTPException(status_code=500, detail="Gemini 응답 파싱 실패")
+
+# 일기 생성
 class PromptRequest(BaseModel):
     prompt: str
 
