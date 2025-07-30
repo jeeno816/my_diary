@@ -1,20 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
 import 'photo_selection_modal.dart';
-import 'contact_selection_modal.dart';
 import 'mood_selection_modal.dart';
 
 class PhotoContactMoodPage extends StatefulWidget {
   final DateTime selectedDate;
   final List<String> initialPhotos;
-  final List<Contact> initialContacts;
   final String? initialMood;
 
   const PhotoContactMoodPage({
     super.key,
     required this.selectedDate,
     this.initialPhotos = const [],
-    this.initialContacts = const [],
     this.initialMood,
   });
 
@@ -27,7 +23,6 @@ class _PhotoContactMoodPageState extends State<PhotoContactMoodPage> {
   int _currentPage = 0;
 
   List<String> selectedPhotos = [];
-  List<Contact> selectedContacts = [];
   String? selectedMood;
 
   @override
@@ -35,7 +30,6 @@ class _PhotoContactMoodPageState extends State<PhotoContactMoodPage> {
     super.initState();
     _pageController = PageController();
     selectedPhotos = List.from(widget.initialPhotos);
-    selectedContacts = List.from(widget.initialContacts);
     selectedMood = widget.initialMood;
   }
 
@@ -56,12 +50,6 @@ class _PhotoContactMoodPageState extends State<PhotoContactMoodPage> {
     });
   }
 
-  void _onContactsChanged(List<Contact> contacts) {
-    setState(() {
-      selectedContacts = contacts;
-    });
-  }
-
   void _onMoodChanged(String mood) {
     setState(() {
       selectedMood = mood;
@@ -71,7 +59,6 @@ class _PhotoContactMoodPageState extends State<PhotoContactMoodPage> {
   void _onComplete() {
     Navigator.pop(context, {
       'photos': selectedPhotos,
-      'contacts': selectedContacts,
       'mood': selectedMood,
     });
   }
@@ -102,19 +89,10 @@ class _PhotoContactMoodPageState extends State<PhotoContactMoodPage> {
                   onPhotosChanged: _onPhotosChanged,
                   isPageView: true,
                 ),
-                // 연락처 선택
-                ContactSelectionModal(
-                  selectedDate: widget.selectedDate,
-                  selectedPhotos: selectedPhotos,
-                  existingContacts: selectedContacts,
-                  onContactsChanged: _onContactsChanged,
-                  isPageView: true,
-                ),
                 // 기분 선택
                 MoodSelectionModal(
                   selectedDate: widget.selectedDate,
                   selectedPhotos: selectedPhotos,
-                  selectedContacts: selectedContacts,
                   existingMood: selectedMood,
                   onMoodChanged: _onMoodChanged,
                   isPageView: true,
@@ -136,11 +114,9 @@ class _PhotoContactMoodPageState extends State<PhotoContactMoodPage> {
                   ),
                 if (_currentPage > 0) const SizedBox(width: 12),
                 Expanded(
-                  child: _currentPage < 2
+                  child: _currentPage < 1
                       ? ElevatedButton(
-                          onPressed: _currentPage == 0
-                              ? (selectedPhotos.isNotEmpty ? () => _goToPage(1) : null)
-                              : (selectedContacts.isNotEmpty ? () => _goToPage(2) : null),
+                          onPressed: selectedPhotos.isNotEmpty ? () => _goToPage(1) : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
                             foregroundColor: Colors.white,

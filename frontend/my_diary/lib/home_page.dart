@@ -3,11 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'dart:developer';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'login_page.dart';
 import 'photo_contact_mood_page.dart';
 import 'diary_view_page.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,12 +21,12 @@ class _HomePageState extends State<HomePage> {
   late DateTime _selectedDay;
   late CalendarFormat _calendarFormat;
   Map<DateTime, List<String>> _photosByDate = {};
-  Map<DateTime, List<Contact>> _contactsByDate = {};
   Map<DateTime, String> _moodsByDate = {};
   
   // 월별 일기 데이터
   Map<String, List<Map<String, dynamic>>> _monthlyDiaryData = {};
   bool _isLoading = false;
+  bool _isCreatingDiary = false;
   
   // API 서버 주소
   static const String _baseUrl = 'https://mydiary-main.up.railway.app';
@@ -69,7 +69,6 @@ class _HomePageState extends State<HomePage> {
   void _showPhotoContactMoodPage(DateTime selectedDay) {
     final normalizedDate = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
     final existingPhotos = _photosByDate[normalizedDate] ?? [];
-    final existingContacts = _contactsByDate[normalizedDate] ?? [];
     final existingMood = _moodsByDate[normalizedDate];
 
     showModalBottomSheet(
@@ -80,7 +79,6 @@ class _HomePageState extends State<HomePage> {
         return PhotoContactMoodPage(
           selectedDate: selectedDay,
           initialPhotos: existingPhotos,
-          initialContacts: existingContacts,
           initialMood: existingMood,
         );
       },
@@ -88,29 +86,17 @@ class _HomePageState extends State<HomePage> {
       if (result != null) {
         setState(() {
           _photosByDate[normalizedDate] = result['photos'];
-          _contactsByDate[normalizedDate] = result['contacts'];
           _moodsByDate[normalizedDate] = result['mood'];
         });
         final photoCount = result['photos'].length;
-        final contactCount = result['contacts'].length;
         final moodDescription = _getMoodDescription(result['mood']);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${selectedDay.month}월 ${selectedDay.day}일에 ${photoCount}장의 사진, ${contactCount}명의 연락처, ${moodDescription} 기분이 저장되었습니다.'),
+            content: Text('${selectedDay.month}월 ${selectedDay.day}일에 ${photoCount}장의 사진, ${moodDescription} 기분이 저장되었습니다.'),
           ),
         );
-        // 일기 상세 페이지로 이동
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DiaryViewPage(
-              date: selectedDay,
-              photos: List<String>.from(result['photos']),
-              contacts: List<Contact>.from(result['contacts']),
-              mood: result['mood'],
-            ),
-          ),
-        );
+        // 새 일기 생성 API 호출
+        _createDiary(selectedDay, result['photos'], result['mood']);
       }
     });
   }
@@ -235,25 +221,119 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
-  void _navigateToDiaryDetail(DateTime date, int diaryId) {
-    // TODO: 일기 상세 페이지로 이동하는 로직 구현
-    // 현재는 간단한 다이얼로그로 표시
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('${date.month}월 ${date.day}일 일기'),
-          content: Text('일기 ID: $diaryId\n이 기능은 추후 구현 예정입니다.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('확인'),
-            ),
-          ],
+  Future<void> _createDiary(DateTime date, List<String> photos, String? mood) async {
+    setState(() {
+      _isCreatingDiary = true;
+    });
+
+    try {
+      final token = await _getFirebaseToken();
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Firebase 토큰을 가져올 수 없습니다.'),
+            backgroundColor: Colors.red,
+          ),
         );
-      },
+        return;
+      }
+
+      // multipart/form-data 요청 생성
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/diaries/'),
+      );
+
+      // 헤더 설정
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['accept'] = 'application/json';
+
+      // 날짜 추가
+      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      request.fields['date'] = dateStr;
+
+      // 기분 추가
+      request.fields['mood'] = mood ?? '😐';
+
+      // 내용 추가 (빈 문자열)
+      request.fields['content'] = '';
+
+      // 사진 파일들 추가
+      for (String photoPath in photos) {
+        final file = File(photoPath);
+        if (await file.exists()) {
+          final stream = http.ByteStream(file.openRead());
+          final length = await file.length();
+          final multipartFile = http.MultipartFile(
+            'photos',
+            stream,
+            length,
+            filename: file.path.split('/').last,
+          );
+          request.files.add(multipartFile);
+        }
+      }
+
+      // 요청 전송
+      final response = await request.send();
+      final responseData = await response.stream.bytesToString();
+      final jsonData = json.decode(responseData);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final diaryId = jsonData['diary_id'];
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('일기가 성공적으로 생성되었습니다. (ID: $diaryId)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // 상세 페이지로 이동
+        _navigateToDiaryDetail(date, diaryId);
+        
+        // 월별 데이터 새로고침
+        _refreshMonthlyData(date);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('일기 생성 실패: ${jsonData['message'] ?? '알 수 없는 오류'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        print('❌ 일기 생성 실패: ${response.statusCode}');
+        print('응답: $responseData');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('네트워크 오류: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      print('❌ 일기 생성 오류: $e');
+    } finally {
+      setState(() {
+        _isCreatingDiary = false;
+      });
+    }
+  }
+
+  void _refreshMonthlyData(DateTime date) {
+    final monthKey = '${date.year}-${date.month.toString().padLeft(2, '0')}';
+    _monthlyDiaryData.remove(monthKey);
+    _loadMonthlyDiaryData(date);
+  }
+
+  void _navigateToDiaryDetail(DateTime date, int diaryId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DiaryViewPage(
+          diaryId: diaryId,
+          date: date,
+        ),
+      ),
     );
   }
 
@@ -265,14 +345,26 @@ class _HomePageState extends State<HomePage> {
         title: const Text('My Diary'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          if (_isCreatingDiary)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.bug_report),
-            onPressed: _printFirebaseToken,
+            onPressed: _isCreatingDiary ? null : _printFirebaseToken,
             tooltip: 'Firebase 토큰 출력',
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
+            onPressed: _isCreatingDiary ? null : () async {
               await FirebaseAuth.instance.signOut();
               if (context.mounted) {
                 Navigator.of(context).pushReplacement(
@@ -337,124 +429,127 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            child: TableCalendar(
-              firstDay: DateTime.utc(2020, 1, 1),
-              lastDay: DateTime.utc(2030, 12, 31),
-              focusedDay: _focusedDay,
-              calendarFormat: _calendarFormat,
-              selectedDayPredicate: (day) {
-                return isSameDay(_selectedDay, day);
-              },
-              onDaySelected: _onDaySelected,
-              onFormatChanged: (format) {
-                setState(() {
-                  _calendarFormat = format;
-                });
-              },
-              onPageChanged: _onPageChanged,
-              calendarStyle: const CalendarStyle(
-                selectedDecoration: BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
-                ),
-                todayDecoration: BoxDecoration(
-                  color: Colors.orange,
-                  shape: BoxShape.circle,
-                ),
-                markerDecoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                cellMargin: EdgeInsets.all(2),
-                cellPadding: EdgeInsets.only(bottom: 12),
-              ),
-              headerStyle: const HeaderStyle(
-                formatButtonVisible: true,
-                titleCentered: true,
-                formatButtonShowsNext: false,
-                formatButtonDecoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                ),
-                formatButtonTextStyle: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
-              ),
-              calendarBuilders: CalendarBuilders(
-                markerBuilder: (context, date, events) {
-                  return _buildEventMarker(date);
+            child: Opacity(
+              opacity: _isCreatingDiary ? 0.5 : 1.0,
+              child: TableCalendar(
+                firstDay: DateTime.utc(2020, 1, 1),
+                lastDay: DateTime.utc(2030, 12, 31),
+                focusedDay: _focusedDay,
+                calendarFormat: _calendarFormat,
+                selectedDayPredicate: (day) {
+                  return isSameDay(_selectedDay, day);
                 },
-                defaultBuilder: (context, date, _) {
-                  final dayData = _getDayData(date);
-                  final hasDiary = dayData?['has_diary'] ?? false;
-                  final thumbnail = dayData?['thumbnail'];
-                  final diaryId = dayData?['diary_id'];
-                  
-                  if (hasDiary && thumbnail != null) {
-                    // 썸네일이 있는 경우
-                    return Container(
-                      margin: const EdgeInsets.all(1),
-                      child: Center(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: Image.network(
-                            '$_baseUrl$thumbnail',
+                onDaySelected: _isCreatingDiary ? null : _onDaySelected,
+                onFormatChanged: (format) {
+                  setState(() {
+                    _calendarFormat = format;
+                  });
+                },
+                onPageChanged: _isCreatingDiary ? null : _onPageChanged,
+                calendarStyle: const CalendarStyle(
+                  selectedDecoration: BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
+                  ),
+                  todayDecoration: BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                  markerDecoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  cellMargin: EdgeInsets.all(2),
+                  cellPadding: EdgeInsets.only(bottom: 12),
+                ),
+                headerStyle: const HeaderStyle(
+                  formatButtonVisible: true,
+                  titleCentered: true,
+                  formatButtonShowsNext: false,
+                  formatButtonDecoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                  formatButtonTextStyle: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                ),
+                calendarBuilders: CalendarBuilders(
+                  markerBuilder: (context, date, events) {
+                    return _buildEventMarker(date);
+                  },
+                  defaultBuilder: (context, date, _) {
+                    final dayData = _getDayData(date);
+                    final hasDiary = dayData?['has_diary'] ?? false;
+                    final thumbnail = dayData?['thumbnail'];
+                    final diaryId = dayData?['diary_id'];
+                    
+                    if (hasDiary && thumbnail != null) {
+                      // 썸네일이 있는 경우
+                      return Container(
+                        margin: const EdgeInsets.all(1),
+                        child: Center(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.network(
+                              '$_baseUrl$thumbnail',
+                              width: 30,
+                              height: 30,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.image,
+                                    size: 16,
+                                    color: Colors.blue,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (hasDiary) {
+                      // 일기는 있지만 썸네일이 없는 경우
+                      return Container(
+                        margin: const EdgeInsets.all(1),
+                        child: Center(
+                          child: Container(
                             width: 30,
                             height: 30,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Icon(
-                                  Icons.image,
-                                  size: 16,
-                                  color: Colors.blue,
-                                ),
-                              );
-                            },
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(
+                              Icons.edit_note,
+                              size: 16,
+                              color: Colors.green,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  } else if (hasDiary) {
-                    // 일기는 있지만 썸네일이 없는 경우
-                    return Container(
-                      margin: const EdgeInsets.all(1),
-                      child: Center(
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Icon(
-                            Icons.edit_note,
-                            size: 16,
-                            color: Colors.green,
+                      );
+                    } else {
+                      // 일기가 없는 경우
+                      return Container(
+                        margin: const EdgeInsets.all(1),
+                        child: Center(
+                          child: Text(
+                            '${date.day}',
+                            style: const TextStyle(fontSize: 14),
                           ),
                         ),
-                      ),
-                    );
-                  } else {
-                    // 일기가 없는 경우
-                    return Container(
-                      margin: const EdgeInsets.all(1),
-                      child: Center(
-                        child: Text(
-                          '${date.day}',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    );
-                  }
-                },
+                      );
+                    }
+                  },
+                ),
               ),
             ),
           ),
@@ -462,10 +557,12 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '날짜를 터치하여 일기를 작성하거나 확인하세요\n썸네일이 있는 날짜는 사진이 포함된 일기입니다',
+              _isCreatingDiary 
+                  ? '일기를 생성하고 있습니다...\n잠시만 기다려주세요'
+                  : '날짜를 터치하여 일기를 작성하거나 확인하세요\n썸네일이 있는 날짜는 사진이 포함된 일기입니다',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey[600],
+                color: _isCreatingDiary ? Colors.blue[600] : Colors.grey[600],
               ),
               textAlign: TextAlign.center,
             ),

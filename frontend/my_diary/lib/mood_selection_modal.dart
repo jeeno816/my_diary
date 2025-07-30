@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
-import 'contact_selection_modal.dart';
 
 class MoodSelectionModal extends StatefulWidget {
   final DateTime selectedDate;
   final List<String> selectedPhotos;
-  final List<Contact> selectedContacts;
   final String? existingMood;
   final void Function(String)? onMoodChanged;
   final bool isPageView;
@@ -14,7 +11,6 @@ class MoodSelectionModal extends StatefulWidget {
     super.key,
     required this.selectedDate,
     required this.selectedPhotos,
-    required this.selectedContacts,
     this.existingMood,
     this.onMoodChanged,
     this.isPageView = false,
@@ -54,47 +50,6 @@ class _MoodSelectionModalState extends State<MoodSelectionModal> {
     }
   }
 
-  void _showContactSelectionModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return ContactSelectionModal(
-          selectedDate: widget.selectedDate,
-          selectedPhotos: widget.selectedPhotos,
-          existingContacts: widget.selectedContacts,
-        );
-      },
-    ).then((selectedContacts) {
-      if (selectedContacts != null) {
-        _showMoodSelectionModal(selectedContacts);
-      }
-    });
-  }
-
-  void _showMoodSelectionModal(List<Contact> selectedContacts) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return MoodSelectionModal(
-          selectedDate: widget.selectedDate,
-          selectedPhotos: widget.selectedPhotos,
-          selectedContacts: selectedContacts,
-          existingMood: selectedMood,
-          onMoodChanged: widget.onMoodChanged,
-          isPageView: widget.isPageView,
-        );
-      },
-    ).then((result) {
-      if (result != null) {
-        Navigator.pop(context, result);
-      }
-    });
-  }
-
   void _onComplete() {
     if (widget.isPageView) {
       if (selectedMood != null && widget.onMoodChanged != null) {
@@ -103,7 +58,6 @@ class _MoodSelectionModalState extends State<MoodSelectionModal> {
     } else {
       final result = {
         'photos': widget.selectedPhotos,
-        'contacts': widget.selectedContacts,
         'mood': selectedMood,
       };
       Navigator.pop(context, result);
@@ -174,65 +128,32 @@ class _MoodSelectionModalState extends State<MoodSelectionModal> {
             ),
           ),
 
-          // 선택된 사진과 연락처 요약
+          // 선택된 사진 요약
           Container(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.photo_library,
-                          color: Colors.blue,
-                          size: 20,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${widget.selectedPhotos.length}장',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.photo_library,
+                    color: Colors.blue,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '선택된 사진: ${widget.selectedPhotos.length}장',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.people,
-                          color: Colors.green,
-                          size: 20,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${widget.selectedContacts.length}명',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -314,7 +235,6 @@ class _MoodSelectionModalState extends State<MoodSelectionModal> {
                     child: OutlinedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        // _showContactSelectionModal(); // 상위에서 처리
                       },
                       child: const Text('이전'),
                     ),
