@@ -126,7 +126,7 @@ def generate_ai_response_logic(diary, photo_descriptions, chat_history, user_mes
     
     # 구조화된 응답을 위한 Gemini API 호출
     response = client.models.generate_content(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         contents=prompt,
         config={
             "response_mime_type": "application/json",

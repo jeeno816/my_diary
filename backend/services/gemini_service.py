@@ -92,7 +92,7 @@ async def analyze_photo_and_generate_description(photo: UploadFile) -> str:
         
         # Gemini API 호출 (압축된 이미지 사용)
         response = model.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=[prompt, compressed_image]
         )
         
