@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,9 @@ app.add_middleware(
 )
 
 # 정적 파일 서빙 설정 (resources 폴더)
-app.mount("/resources", StaticFiles(directory="resources"), name="resources")
+resources_dir = os.path.join(os.path.dirname(__file__), "resources")
+os.makedirs(resources_dir, exist_ok=True)  # 디렉토리가 없으면 생성
+app.mount("/resources", StaticFiles(directory=resources_dir), name="resources")
 
 # 라우터 등록
 app.include_router(diary_router)  # prefix 제거 (diary_routes.py에서 이미 /diaries 설정됨)

@@ -30,9 +30,10 @@ def delete_photo_by_id(diary_id: int, photo_id: int, db):
 async def upload_photo_with_description(diary_id: int, photo: UploadFile, db):
     # 1. 파일 저장
     filename = f"{uuid.uuid4().hex}_{photo.filename}"
-    file_path = f"resources/photos/{filename}"
+    photos_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources", "photos")
+    os.makedirs(photos_dir, exist_ok=True)  # 디렉토리가 없으면 생성
+    file_path = os.path.join(photos_dir, filename)
     url_path = f"/resources/photos/{filename}"  # 웹 접근용 URL 경로
-    os.makedirs("resources/photos", exist_ok=True)
     
     # 파일을 메모리에 복사 (Gemini API 분석용)
     photo_data = await photo.read()
