@@ -196,7 +196,20 @@ def check_diary_exists(
 ):
     uid = get_firebase_uid(token)
     exists = diary_exists_by_date(target_date, uid)
-    return {"exists": exists}
+    
+    # 일기가 존재하면 diary_id도 함께 반환
+    diary_id = None
+    if exists:
+        # 해당 날짜의 일기 ID 조회
+        from backend.services.diary_service import get_diary_by_date
+        diary = get_diary_by_date(target_date, uid)
+        if diary:
+            diary_id = diary.id
+    
+    return {
+        "exists": exists,
+        "diary_id": diary_id
+    }
 
 # ✅ 월별 일기 존재 여부
 @router.get("/month/{year_month}")

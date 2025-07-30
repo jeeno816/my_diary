@@ -58,6 +58,19 @@ def diary_exists_by_date(target_date: date, user_id: str) -> bool:
         db.close()
 
 
+# 날짜로 일기 조회
+def get_diary_by_date(target_date: date, user_id: str):
+    db = get_db_session()
+    try:
+        diary = db.query(DiaryEntry).filter(
+            DiaryEntry.date == target_date,
+            DiaryEntry.user_id == user_id
+        ).first()
+        return diary
+    finally:
+        db.close()
+
+
 # 특정 달의 일기 존재 여부 및 대표 이미지
 def get_diary_days_in_month(year: int, month: int, user_id: str):
     db = get_db_session()
@@ -68,23 +81,28 @@ def get_diary_days_in_month(year: int, month: int, user_id: str):
             text("YEAR(date) = :year AND MONTH(date) = :month")
         ).params(year=year, month=month).all()
         
-        # 썸네일 정보 포함하여 조회
+        # 썸네일 정보와 diary_id 포함하여 조회
         diary_map = {}
         for entry in entries:
             # 각 일기의 첫 번째 사진을 썸네일로 사용
             thumbnail = db.query(Photo.path).filter(
                 Photo.diary_id == entry.id
             ).first()
-            diary_map[entry.date.day] = thumbnail[0] if thumbnail else None
+            diary_map[entry.date.day] = {
+                "thumbnail": thumbnail[0] if thumbnail else None,
+                "diary_id": entry.id
+            }
         
         _, last_day = calendar.monthrange(year, month)
         result = []
 
         for day in range(1, last_day + 1):
+            day_info = diary_map.get(day)
             result.append({
                 "day": day,
                 "has_diary": day in diary_map,
-                "thumbnail": diary_map.get(day)
+                "thumbnail": day_info["thumbnail"] if day_info else None,
+                "diary_id": day_info["diary_id"] if day_info else None
             })
 
         return result
