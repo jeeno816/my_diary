@@ -38,7 +38,7 @@ def verify_diary_ownership(diary_id: int, user_id: str) -> bool:
         diary = get_diary_entry(diary_id)
         if not diary:
             return False
-        return diary.get('user_id') == user_id
+        return diary.user_id == user_id  # SQLAlchemy 객체의 속성으로 접근
     except Exception as e:
         print(f"일기 소유권 확인 실패: {e}")
         return False
