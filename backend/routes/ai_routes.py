@@ -1,76 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.schemas.diary import AIQueryLogCreate
-from backend.services.ai_service import fetch_ai_logs, generate_ai_reply
-from backend.dependencies.db import get_db
+
+from backend.services.ai_service import fetch_ai_logs, generate_contextual_ai_conversation
+from backend.dependencies.db import get_db, get_db_session
 from typing import Annotated
-import requests
 from pydantic import BaseModel
-import os
-# from backend.dependencies.auth import get_current_user
 
 router = APIRouter(prefix="/ai_logs", tags=["AI Logs"])
 
-
-API_KEY = os.getenv("GEMINI_API_KEY")  # Railway면 환경변수 등록해줘야 함
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
-
-
-# Gemini와 채팅
-class ChatPrompt(BaseModel):
+# 사용자 메시지 모델
+class ChatMessage(BaseModel):
     message: str
-
-@router.post("/chat")
-def chat_with_gemini(prompt: ChatPrompt):
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": prompt.message}
-                ]
-            }
-        ]
-    }
-
-    headers = {"Content-Type": "application/json"}
-
-    response = requests.post(GEMINI_URL, headers=headers, json=body)
-
-    if response.status_code != 200:
-        raise HTTPException(status_code=500, detail="Gemini 호출 실패")
-
-    try:
-        content = response.json()["candidates"][0]["content"]["parts"][0]["text"]
-        return {"response": content}
-    except:
-        raise HTTPException(status_code=500, detail="Gemini 응답 파싱 실패")
-
-# 일기 생성
-class PromptRequest(BaseModel):
-    prompt: str
-
-@router.post("/generate-diary")
-def generate_diary(req: PromptRequest):
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": req.prompt}
-                ]
-            }
-        ]
-    }
-
-    headers = {"Content-Type": "application/json"}
-    res = requests.post(GEMINI_URL, headers=headers, json=body)
-
-    if res.status_code != 200:
-        raise HTTPException(status_code=500, detail="Gemini API 호출 실패")
-
-    data = res.json()
-    try:
-        return {"diary": data["candidates"][0]["content"]["parts"][0]["text"]}
-    except:
-        raise HTTPException(status_code=500, detail="Gemini 응답 파싱 오류")
 
 # 대화 내용 불러오기
 @router.get("/{diary_id}")
@@ -79,17 +18,82 @@ async def get_ai_logs_route(
     db: Annotated[object, Depends(get_db)],
     # user_id: int = Depends(get_current_user)
 ):
+    """
+    특정 일기의 AI 대화 로그를 조회합니다.
+    대화 내역이 없으면 초기 AI 메시지를 자동 생성합니다.
+    """
     logs = fetch_ai_logs(diary_id, db)
-    return {"logs": logs}
+    
+    # logs를 chats 형태로 변환
+    chats = []
+    for log in logs:
+        chats.append({
+            "by": log["written_by"],
+            "text": log["content"]
+        })
+    
+    # 대화 내역이 없으면 초기 AI 메시지 생성
+    if not chats:
+        from backend.services.ai_service import generate_ai_response_logic
+        from backend.models.diary import DiaryEntry, Photo, AIQueryLog
+        
+        # 일기 정보 가져오기
+        db_session = get_db_session()
+        try:
+            diary = db_session.query(DiaryEntry).filter(DiaryEntry.id == diary_id).first()
+            if diary:
+                # 사진 설명들 가져오기
+                photos = db_session.query(Photo).filter(Photo.diary_id == diary_id).all()
+                photo_descriptions = [photo.description for photo in photos if photo.description]
+                
+                # 첫 번째 질문 생성 (사진 설명 기반)
+                first_question, _, _ = generate_ai_response_logic(
+                    diary, photo_descriptions, [], ""
+                )
+                
+                # 초기 AI 메시지들을 DB에 저장
+                initial_message = AIQueryLog(
+                    diary_id=diary_id,
+                    content="일기를 생성하는거 도와줄게. 질문에 대답해줘",
+                    written_by="ai"
+                )
+                db_session.add(initial_message)
+                
+                first_question_log = AIQueryLog(
+                    diary_id=diary_id,
+                    content=first_question,
+                    written_by="ai"
+                )
+                db_session.add(first_question_log)
+                
+                db_session.commit()
+                
+                chats = [
+                    {"by": "ai", "text": "일기를 생성하는거 도와줄게. 질문에 대답해줘"},
+                    {"by": "ai", "text": first_question}
+                ]
+        finally:
+            db_session.close()
+    
+    return {"chats": chats}
 
-# 채팅
+
+# 사용자 대화 업로드 및 AI 응답
 @router.post("/{diary_id}")
-async def chat_with_ai(
+async def upload_user_message(
     diary_id: int,
-    input: AIQueryLogCreate,
+    chat_input: ChatMessage,
     db: Annotated[object, Depends(get_db)],
     # user_id: int = Depends(get_current_user)
 ):
-    # 임시로 AI 응답을 저장하는 로직
-    result = generate_ai_reply(diary_id, input, db)
-    return {"reply": result}
+    """
+    사용자 메시지를 업로드하고 AI 응답을 생성합니다.
+    - diary_id: 일기 ID
+    - message: 사용자 메시지
+    - 반환: 대화 히스토리와 AI 응답
+    """
+    try:
+        result = generate_contextual_ai_conversation(diary_id, chat_input.message)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI 대화 생성 실패: {str(e)}")

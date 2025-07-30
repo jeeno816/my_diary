@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'dart:developer';
 import 'login_page.dart';
 import 'photo_contact_mood_page.dart';
 import 'diary_view_page.dart';
@@ -102,6 +103,35 @@ class _HomePageState extends State<HomePage> {
     return moodDescriptions[mood] ?? '선택 안함';
   }
 
+  Future<void> _printFirebaseToken() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final token = await user.getIdToken();
+        if (token != null) {
+          print('🔥 Firebase ID Token for Swagger:');
+          print('Bearer $token');
+          print('🔥 Token length: ${token.length}');
+          
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Firebase 토큰이 터미널에 출력되었습니다!'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          print('❌ 토큰이 null입니다.');
+        }
+      } else {
+        print('❌ 사용자가 로그인되지 않았습니다.');
+      }
+    } catch (e) {
+      print('❌ 토큰 가져오기 실패: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -110,6 +140,11 @@ class _HomePageState extends State<HomePage> {
         title: const Text('My Diary'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: _printFirebaseToken,
+            tooltip: 'Firebase 토큰 출력',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {

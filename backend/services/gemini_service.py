@@ -3,19 +3,21 @@ from dotenv import load_dotenv
 from PIL import Image
 import io
 from fastapi import UploadFile
-import google.generativeai as genai
+from google import genai
 
 load_dotenv()
 
 # Gemini API 키 설정
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 def get_gemini_model():
     """Gemini Pro Vision 모델을 반환합니다."""
     try:
-        return genai.GenerativeModel('gemini-1.5-flash')
+        if not GEMINI_API_KEY:
+            print("GEMINI_API_KEY가 설정되지 않았습니다.")
+            return None
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        return client
     except Exception as e:
         print(f"Gemini 모델 초기화 실패: {e}")
         return None
@@ -89,7 +91,10 @@ async def analyze_photo_and_generate_description(photo: UploadFile) -> str:
         """
         
         # Gemini API 호출 (압축된 이미지 사용)
-        response = model.generate_content([prompt, compressed_image])
+        response = model.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=[prompt, compressed_image]
+        )
         
         if response.text:
             return response.text.strip()
@@ -98,4 +103,6 @@ async def analyze_photo_and_generate_description(photo: UploadFile) -> str:
             
     except Exception as e:
         print(f"사진 분석 실패: {e}")
+        print(f"GEMINI_API_KEY 설정 여부: {GEMINI_API_KEY is not None}")
+        print(f"모델 초기화 여부: {model is not None}")
         return "사진이 포함된 일기입니다." 
