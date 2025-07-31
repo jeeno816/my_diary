@@ -22,7 +22,9 @@ async def get_ai_logs_route(
     특정 일기의 AI 대화 로그를 조회합니다.
     대화 내역이 없으면 초기 AI 메시지를 자동 생성합니다.
     """
-    logs = fetch_ai_logs(diary_id, db)
+    logs, candidates = fetch_ai_logs(diary_id, db)
+    print(f"🔍 ai_routes - logs 개수: {len(logs)}")
+    print(f"🔍 ai_routes - candidates: {candidates}")
     
     # logs를 chats 형태로 변환
     chats = []
@@ -47,7 +49,7 @@ async def get_ai_logs_route(
                 photo_descriptions = [photo.description for photo in photos if photo.description]
                 
                 # 첫 번째 질문 생성 (사진 설명 기반)
-                first_question, _, _ = generate_ai_response_logic(
+                first_question, _, _, _ = generate_ai_response_logic(
                     diary, photo_descriptions, [], ""
                 )
                 
@@ -72,10 +74,19 @@ async def get_ai_logs_route(
                     {"by": "ai", "text": "일기를 생성하는거 도와줄게. 질문에 대답해줘"},
                     {"by": "ai", "text": first_question}
                 ]
+                # 초기 candidates 생성
+                candidates = ["친구", "가족", "그냥 일기써줘"]
         finally:
             db_session.close()
     
-    return {"chats": chats}
+    result = {"chats": chats}
+    if candidates:
+        result["candidates"] = candidates
+        print(f"🔍 ai_routes - 최종 응답에 candidates 포함: {candidates}")
+    else:
+        print("🔍 ai_routes - candidates가 없음")
+    print(f"🔍 ai_routes - 최종 응답: {result}")
+    return result
 
 
 # 사용자 대화 업로드 및 AI 응답

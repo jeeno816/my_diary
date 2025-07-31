@@ -25,6 +25,7 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
   String? _error;
   List<Map<String, dynamic>> _chatMessages = [];
   bool _isSendingMessage = false;
+  List<String>? _candidates;
   
   // API 서버 주소
   static const String _baseUrl = 'https://mydiary-main.up.railway.app';
@@ -144,6 +145,7 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
         diaryId: widget.diaryId,
         onDiaryUpdated: _loadDiaryData,
         onShowSaveModal: _showSaveDiaryModal,
+        candidates: _candidates,
       ),
     );
   }
@@ -478,6 +480,7 @@ class AIDialogModal extends StatefulWidget {
   final int diaryId;
   final VoidCallback? onDiaryUpdated;
   final Function(String)? onShowSaveModal;
+  final List<String>? candidates;
 
   const AIDialogModal({
     super.key,
@@ -485,6 +488,7 @@ class AIDialogModal extends StatefulWidget {
     required this.diaryId,
     this.onDiaryUpdated,
     this.onShowSaveModal,
+    this.candidates,
   });
 
   @override
@@ -496,11 +500,13 @@ class _AIDialogModalState extends State<AIDialogModal> {
   final TextEditingController controller = TextEditingController();
   bool isSending = false;
   bool isLoading = false;
+  List<String>? candidates;
 
   @override
   void initState() {
     super.initState();
     messages = List<Map<String, dynamic>>.from(widget.initialMessages);
+    candidates = widget.candidates;
     
     // 초기 메시지가 없으면 로딩 상태로 설정하고 직접 로드
     if (messages.isEmpty) {
@@ -543,8 +549,13 @@ class _AIDialogModalState extends State<AIDialogModal> {
             'text': chat['text'],
           }).toList();
           isLoading = false;
+          // candidates 업데이트
+          if (data['candidates'] != null) {
+            candidates = List<String>.from(data['candidates']);
+          }
         });
         print('✅ AI 채팅 내역 로드 완료: ${messages.length}개 메시지');
+        print('✅ Candidates 로드 완료: $candidates');
       } else {
         print('❌ AI 채팅 내역 로드 실패: ${response.statusCode}');
         setState(() {
@@ -604,6 +615,10 @@ class _AIDialogModalState extends State<AIDialogModal> {
             }
           }
           isSending = false;
+          // 새로운 candidates 업데이트
+          if (data['candidates'] != null) {
+            candidates = List<String>.from(data['candidates']);
+          }
         });
 
         // is_edit_text가 true인지 확인
@@ -879,32 +894,69 @@ class _AIDialogModalState extends State<AIDialogModal> {
                       ],
                     ),
                   )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
-                    itemBuilder: (context, idx) {
-                      final msg = messages[idx];
-                      final isUser = msg['role'] == 'user';
-                      return Align(
-                        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: isUser ? const Color(0xFFCFE3CC) : const Color(0xFFFFFFFF),
-                            borderRadius: BorderRadius.circular(12),
-                            border: isUser ? null : Border.all(color: Colors.grey.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            msg['text'] ?? '',
-                            style: TextStyle(
-                              color: isUser ? const Color(0xFF000000) : const Color(0xFF303030),
-                              fontSize: 15,
-                            ),
+                : Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: messages.length,
+                          itemBuilder: (context, idx) {
+                            final msg = messages[idx];
+                            final isUser = msg['role'] == 'user';
+                            return Align(
+                              alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                                decoration: BoxDecoration(
+                                  color: isUser ? const Color(0xFFCFE3CC) : const Color(0xFFFFFFFF),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: isUser ? null : Border.all(color: Colors.grey.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  msg['text'] ?? '',
+                                  style: TextStyle(
+                                    color: isUser ? const Color(0xFF000000) : const Color(0xFF303030),
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      // Candidates 버튼들
+                      if (candidates != null && candidates!.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: candidates!.map((candidate) => GestureDetector(
+                              onTap: () {
+                                controller.text = candidate;
+                                _sendMessage();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFA2BFA3).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: const Color(0xFFA2BFA3)),
+                                ),
+                                child: Text(
+                                  candidate,
+                                  style: const TextStyle(
+                                    color: Color(0xFFA2BFA3),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            )).toList(),
                           ),
                         ),
-                      );
-                    },
+                    ],
                   ),
           ),
           const Divider(height: 1),
