@@ -133,15 +133,15 @@ class _MoodSelectionModalState extends State<MoodSelectionModal> {
             padding: const EdgeInsets.all(16),
             child: Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                          decoration: BoxDecoration(
+              color: const Color(0xFFCFE3CC),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   Icon(
                     Icons.photo_library,
-                    color: Colors.blue,
+                    color: const Color(0xFFA2BFA3),
                     size: 20,
                   ),
                   const SizedBox(width: 8),

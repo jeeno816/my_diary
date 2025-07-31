@@ -98,11 +98,14 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFDFBF8),
       appBar: AppBar(
         title: Text(_isSignUp ? '회원가입' : '로그인'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: const Color(0xFFFDFBF8),
+        foregroundColor: Colors.black,
+        centerTitle: true,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -114,7 +117,7 @@ class _LoginPageState extends State<LoginPage> {
               const Icon(
                 Icons.book,
                 size: 80,
-                color: Colors.blue,
+                color: const Color(0xFFA2BFA3),
               ),
               const SizedBox(height: 20),
               Text(
@@ -122,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.blue,
+                  color: const Color(0xFFA2BFA3),
                 ),
               ),
               const SizedBox(height: 40),
@@ -176,7 +179,7 @@ class _LoginPageState extends State<LoginPage> {
                 onPressed: _isLoading ? null : _submitForm,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.blue,
+                                      backgroundColor: const Color(0xFFA2BFA3),
                   foregroundColor: Colors.white,
                 ),
                 child: _isLoading

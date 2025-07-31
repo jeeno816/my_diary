@@ -341,22 +341,24 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
+      backgroundColor: const Color(0xFFFDFBF8),
       appBar: AppBar(
         title: const Text('My Diary'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        centerTitle: true,
+        backgroundColor: const Color(0xFFFDFBF8),
         actions: [
           if (_isCreatingDiary)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                          const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA2BFA3)),
+                  ),
                 ),
               ),
-            ),
           IconButton(
             icon: const Icon(Icons.bug_report),
             onPressed: _isCreatingDiary ? null : _printFirebaseToken,
@@ -383,10 +385,10 @@ class _HomePageState extends State<HomePage> {
               children: [
                 CircleAvatar(
                   radius: 25,
-                  backgroundColor: Colors.blue.withOpacity(0.2),
-                  child: Icon(
+                  backgroundColor: const Color(0xFFCFE3CC),
+                  child: const Icon(
                     Icons.person,
-                    color: Colors.blue,
+                    color: Color(0xFFA2BFA3),
                     size: 30,
                   ),
                 ),
@@ -418,139 +420,149 @@ class _HomePageState extends State<HomePage> {
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFFDFBF8),
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+            ),
+            child: Column(
+              children: [
+                // 커스텀 헤더
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _buildFormatButton(),
+                    ],
+                  ),
+                ),
+                // 캘린더
+                Opacity(
+                  opacity: _isCreatingDiary ? 0.5 : 1.0,
+                  child: TableCalendar(
+                    firstDay: DateTime.utc(2020, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: _focusedDay,
+                    calendarFormat: _calendarFormat,
+                    selectedDayPredicate: (day) {
+                      return isSameDay(_selectedDay, day);
+                    },
+                    onDaySelected: _isCreatingDiary ? null : _onDaySelected,
+                    onFormatChanged: (format) {
+                      setState(() {
+                        _calendarFormat = format;
+                      });
+                    },
+                    onPageChanged: _isCreatingDiary ? null : _onPageChanged,
+                    calendarStyle: const CalendarStyle(
+                      selectedDecoration: BoxDecoration(
+                        color: Color(0xFFA2BFA3),
+                        shape: BoxShape.circle,
+                      ),
+                                        todayDecoration: BoxDecoration(
+                    color: const Color(0xFFA2BFA3),
+                    shape: BoxShape.circle,
+                  ),
+                      markerDecoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      cellMargin: EdgeInsets.all(2),
+                      cellPadding: EdgeInsets.zero,
+                      cellAlignment: Alignment.center,
+                    ),
+                    headerStyle: const HeaderStyle(
+                      formatButtonVisible: false,
+                      titleCentered: true,
+                      formatButtonShowsNext: false,
+                    ),
+                    calendarBuilders: CalendarBuilders(
+                      markerBuilder: (context, date, events) {
+                        return _buildEventMarker(date);
+                      },
+                      defaultBuilder: (context, date, _) {
+                        final dayData = _getDayData(date);
+                        final hasDiary = dayData?['has_diary'] ?? false;
+                        final thumbnail = dayData?['thumbnail'];
+                        final diaryId = dayData?['diary_id'];
+                        
+                        if (hasDiary && thumbnail != null) {
+                          // 썸네일이 있는 경우
+                          return Container(
+                            margin: const EdgeInsets.all(1),
+                            child: Center(
+                              child: ClipOval(
+                                child: Image.network(
+                                  '$_baseUrl$thumbnail',
+                                  width: 35,
+                                  height: 35,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      width: 35,
+                                      height: 35,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFCFE3CC),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.image,
+                                        size: 16,
+                                        color: Color(0xFFA2BFA3),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
+                        } else if (hasDiary) {
+                          // 일기는 있지만 썸네일이 없는 경우
+                          return Container(
+                            margin: const EdgeInsets.all(1),
+                            child: Center(
+                              child: Container(
+                                width: 35,
+                                height: 35,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.edit_note,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          );
+                        } else {
+                          // 일기가 없는 경우
+                          return Container(
+                            margin: const EdgeInsets.all(1),
+                            child: Center(
+                              child: Container(
+                                width: 35,
+                                height: 35,
+                                decoration: BoxDecoration(
+                                  color: Colors.transparent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${date.day}',
+                                    style: const TextStyle(fontSize: 14),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
                 ),
               ],
-            ),
-            child: Opacity(
-              opacity: _isCreatingDiary ? 0.5 : 1.0,
-              child: TableCalendar(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: _focusedDay,
-                calendarFormat: _calendarFormat,
-                selectedDayPredicate: (day) {
-                  return isSameDay(_selectedDay, day);
-                },
-                onDaySelected: _isCreatingDiary ? null : _onDaySelected,
-                onFormatChanged: (format) {
-                  setState(() {
-                    _calendarFormat = format;
-                  });
-                },
-                onPageChanged: _isCreatingDiary ? null : _onPageChanged,
-                calendarStyle: const CalendarStyle(
-                  selectedDecoration: BoxDecoration(
-                    color: Colors.blue,
-                    shape: BoxShape.circle,
-                  ),
-                  todayDecoration: BoxDecoration(
-                    color: Colors.orange,
-                    shape: BoxShape.circle,
-                  ),
-                  markerDecoration: BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  cellMargin: EdgeInsets.all(2),
-                  cellPadding: EdgeInsets.only(bottom: 12),
-                ),
-                headerStyle: const HeaderStyle(
-                  formatButtonVisible: true,
-                  titleCentered: true,
-                  formatButtonShowsNext: false,
-                  formatButtonDecoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: BorderRadius.all(Radius.circular(12)),
-                  ),
-                  formatButtonTextStyle: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
-                ),
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, events) {
-                    return _buildEventMarker(date);
-                  },
-                  defaultBuilder: (context, date, _) {
-                    final dayData = _getDayData(date);
-                    final hasDiary = dayData?['has_diary'] ?? false;
-                    final thumbnail = dayData?['thumbnail'];
-                    final diaryId = dayData?['diary_id'];
-                    
-                    if (hasDiary && thumbnail != null) {
-                      // 썸네일이 있는 경우
-                      return Container(
-                        margin: const EdgeInsets.all(1),
-                        child: Center(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: Image.network(
-                              '$_baseUrl$thumbnail',
-                              width: 30,
-                              height: 30,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.image,
-                                    size: 16,
-                                    color: Colors.blue,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    } else if (hasDiary) {
-                      // 일기는 있지만 썸네일이 없는 경우
-                      return Container(
-                        margin: const EdgeInsets.all(1),
-                        child: Center(
-                          child: Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Icon(
-                              Icons.edit_note,
-                              size: 16,
-                              color: Colors.green,
-                            ),
-                          ),
-                        ),
-                      );
-                    } else {
-                      // 일기가 없는 경우
-                      return Container(
-                        margin: const EdgeInsets.all(1),
-                        child: Center(
-                          child: Text(
-                            '${date.day}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
             ),
           ),
           const Spacer(),
@@ -562,7 +574,7 @@ class _HomePageState extends State<HomePage> {
                   : '날짜를 터치하여 일기를 작성하거나 확인하세요\n썸네일이 있는 날짜는 사진이 포함된 일기입니다',
               style: TextStyle(
                 fontSize: 12,
-                color: _isCreatingDiary ? Colors.blue[600] : Colors.grey[600],
+                color: _isCreatingDiary ? const Color(0xFFA2BFA3) : Colors.grey[600],
               ),
               textAlign: TextAlign.center,
             ),
@@ -576,4 +588,52 @@ class _HomePageState extends State<HomePage> {
     // 15일 특별 표시 제거 - 이제 API 데이터 기반으로만 표시
     return const SizedBox.shrink();
   }
-} 
+
+  Widget _buildFormatButton() {
+    String getFormatText() {
+      switch (_calendarFormat) {
+        case CalendarFormat.month:
+          return 'Month';
+        case CalendarFormat.twoWeeks:
+          return '2 Weeks';
+        case CalendarFormat.week:
+          return 'Week';
+        default:
+          return 'Month';
+      }
+    }
+
+    return GestureDetector(
+      onTap: _isCreatingDiary ? null : () {
+        setState(() {
+          switch (_calendarFormat) {
+            case CalendarFormat.month:
+              _calendarFormat = CalendarFormat.twoWeeks;
+              break;
+            case CalendarFormat.twoWeeks:
+              _calendarFormat = CalendarFormat.week;
+              break;
+            case CalendarFormat.week:
+              _calendarFormat = CalendarFormat.month;
+              break;
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFA2BFA3),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          getFormatText(),
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+}

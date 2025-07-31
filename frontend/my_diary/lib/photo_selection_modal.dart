@@ -111,7 +111,7 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: const Color(0xFFCFE3CC),
               borderRadius: widget.isPageView
                   ? null
                   : const BorderRadius.only(
@@ -123,7 +123,7 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
               children: [
                 Icon(
                   Icons.photo_camera,
-                  color: Colors.blue,
+                  color: const Color(0xFFA2BFA3),
                   size: 24,
                 ),
                 const SizedBox(width: 12),
@@ -174,7 +174,7 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
                         : const Icon(Icons.photo_library),
                     label: Text(isLoading ? '처리 중...' : '갤러리에서 사진 선택'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: const Color(0xFFA2BFA3),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -297,7 +297,7 @@ class _PhotoSelectionModalState extends State<PhotoSelectionModal> {
                     child: ElevatedButton(
                       onPressed: selectedPhotos.isEmpty ? null : _proceedToContactSelection,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: const Color(0xFFA2BFA3),
                         foregroundColor: Colors.white,
                       ),
                       child: const Text('다음'),

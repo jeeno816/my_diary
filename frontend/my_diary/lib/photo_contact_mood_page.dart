@@ -118,7 +118,7 @@ class _PhotoContactMoodPageState extends State<PhotoContactMoodPage> {
                       ? ElevatedButton(
                           onPressed: selectedPhotos.isNotEmpty ? () => _goToPage(1) : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
+                            backgroundColor: const Color(0xFFA2BFA3),
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('다음'),

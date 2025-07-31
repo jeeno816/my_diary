@@ -21,8 +21,35 @@ class MainApp extends StatelessWidget {
     return MaterialApp(
       title: 'My Diary',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFA2BFA3)),
         useMaterial3: true,
+        fontFamily: 'MyDiaryFont',
+        textTheme: const TextTheme(
+          // Display styles
+          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+          displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          
+          // Headline styles
+          headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          
+          // Title styles
+          titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          
+          // Body styles
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+          bodySmall: TextStyle(fontSize: 12),
+          
+          // Label styles
+          labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          labelSmall: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+        ),
       ),
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),

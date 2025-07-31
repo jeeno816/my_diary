@@ -99,6 +99,21 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
           _isLoading = false;
         });
         print('✅ 일기 데이터 로드 완료: ${data['id']}');
+        
+        // 일기 본문이 없으면 자동으로 AI 대화창 열기 (사진이 있어도 본문이 없으면 열림)
+        print('🔍 일기 본문 확인: ${data['content']}');
+        print('🔍 사진 개수: ${data['photos']?.length ?? 0}');
+        if (data['content'] == null || data['content'].toString().trim().isEmpty) {
+          print('✅ 본문이 없어서 AI 대화창을 열겠습니다');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_aiModalShown) {
+              _aiModalShown = true;
+              _showAIModal(context);
+            }
+          });
+        } else {
+          print('❌ 본문이 있어서 AI 대화창을 열지 않습니다');
+        }
       } else {
         setState(() {
           _error = '일기 데이터를 가져올 수 없습니다. (${response.statusCode})';
@@ -123,6 +138,7 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: false,
       builder: (context) => AIDialogModal(
         initialMessages: _chatMessages,
         diaryId: widget.diaryId,
@@ -141,26 +157,16 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // API 데이터가 로드되고 일기 본문이 없고, 아직 모달을 띄우지 않았다면 자동으로 띄움
-    if (_diaryData != null && 
-        (_diaryData!['content'] == null || _diaryData!['content'].toString().trim().isEmpty) && 
-        !_aiModalShown) {
-      _aiModalShown = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _showAIModal(context);
-        }
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFDFBF8),
       appBar: AppBar(
         title: const Text('일기 상세'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFDFBF8),
+        foregroundColor: Colors.black,
         actions: [
           if (_isLoading)
             const Padding(
@@ -178,8 +184,9 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAIModal(context),
-        backgroundColor: Colors.deepPurple,
-        child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+        backgroundColor: const Color(0xFFA2BFA3),
+        shape: const CircleBorder(),
+        child: const Icon(Icons.chat_bubble, color: Colors.white),
         tooltip: 'AI와 대화',
       ),
       body: _isLoading
@@ -216,31 +223,29 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.calendar_today, color: Colors.blue),
-                                const SizedBox(width: 8),
-                                Text(
-                                  formattedDate,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
-                              ],
+                            Center(
+                              child: Text(
+                                formattedDate,
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                             const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                const Icon(Icons.emoji_emotions, color: Colors.purple),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _diaryData!['mood'] ?? '😐',
-                                  style: const TextStyle(fontSize: 28),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  moodDescription,
-                                  style: const TextStyle(fontSize: 16, color: Colors.purple, fontWeight: FontWeight.bold),
-                                ),
-                              ],
+                            Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _diaryData!['mood'] ?? '😐',
+                                    style: const TextStyle(fontSize: 28),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    moodDescription,
+                                    style: const TextStyle(fontSize: 16, color: Color(0xFFA2BFA3), fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 24),
                             if (_diaryData!['photos'] != null && (_diaryData!['photos'] as List).isNotEmpty) ...[
@@ -254,18 +259,47 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
                                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                                   itemBuilder: (context, idx) {
                                     final photo = _diaryData!['photos'][idx];
-                                    return ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(
-                                        '$_baseUrl${photo['path']}',
-                                        width: 100,
-                                        height: 100,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) => Container(
+                                    final imageUrl = '$_baseUrl${photo['path']}';
+                                    return GestureDetector(
+                                      onTap: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (_) => Dialog(
+                                            backgroundColor: Colors.transparent,
+                                            insetPadding: const EdgeInsets.all(16),
+                                            child: GestureDetector(
+                                              onTap: () => Navigator.of(context).pop(), // 탭하면 닫히게
+                                              child: InteractiveViewer(
+                                                child: Image.network(
+                                                  '$_baseUrl${photo['path']}',
+                                                  fit: BoxFit.contain,
+                                                  loadingBuilder: (context, child, progress) {
+                                                    if (progress == null) return child;
+                                                    return const Center(child: CircularProgressIndicator());
+                                                  },
+                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                                    color: Colors.grey[200],
+                                                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(5),
+                                        child: Image.network(
+                                          '$_baseUrl${photo['path']}',
                                           width: 100,
                                           height: 100,
-                                          color: Colors.grey[200],
-                                          child: const Icon(Icons.broken_image, color: Colors.grey),
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => Container(
+                                            width: 100,
+                                            height: 100,
+                                            color: Colors.grey[200],
+                                            child: const Icon(Icons.broken_image, color: Colors.grey),
+                                          ),
                                         ),
                                       ),
                                     );
@@ -280,16 +314,16 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _diaryData!['content']?.toString().trim().isNotEmpty == true
-                      ? _diaryData!['content'].toString()
-                      : '아직 일기 본문은 작성하지 않았어요.',
-                  style: const TextStyle(fontSize: 15, color: Colors.grey),
-                ),
-              ),
+                                color: const Color(0xFFFAF6F1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _diaryData!['content']?.toString().trim().isNotEmpty == true
+                                    ? _diaryData!['content'].toString()
+                                    : '아직 일기 본문은 작성하지 않았어요.',
+                                style: const TextStyle(fontSize: 15, color: Color(0xFF000000)),
+                              ),
+                            ),
             ],
           ),
         ),
@@ -351,7 +385,7 @@ class _DiaryViewPageState extends State<DiaryViewPage> {
                   _saveDiaryContent(editedText);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: const Color(0xFFA2BFA3),
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('저장'),
@@ -685,7 +719,7 @@ class _AIDialogModalState extends State<AIDialogModal> {
                       _saveDiaryContent(editedText);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: const Color(0xFFA2BFA3),
                       foregroundColor: Colors.white,
                     ),
                     child: const Text('저장'),
@@ -805,6 +839,7 @@ class _AIDialogModalState extends State<AIDialogModal> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -817,7 +852,7 @@ class _AIDialogModalState extends State<AIDialogModal> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             decoration: BoxDecoration(
-              color: Colors.deepPurple.withOpacity(0.08),
+              color: const Color(0xFFA2BFA3).withOpacity(0.08),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
                 topRight: Radius.circular(20),
@@ -825,7 +860,7 @@ class _AIDialogModalState extends State<AIDialogModal> {
             ),
             child: Row(
               children: const [
-                Icon(Icons.smart_toy, color: Colors.deepPurple),
+                Icon(Icons.smart_toy, color: Color(0xFFA2BFA3)),
                 SizedBox(width: 10),
                 Text('AI와 대화', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
@@ -856,13 +891,14 @@ class _AIDialogModalState extends State<AIDialogModal> {
                           margin: const EdgeInsets.symmetric(vertical: 4),
                           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                           decoration: BoxDecoration(
-                            color: isUser ? Colors.blue[100] : Colors.grey[200],
+                            color: isUser ? const Color(0xFFCFE3CC) : const Color(0xFFFFFFFF),
                             borderRadius: BorderRadius.circular(12),
+                            border: isUser ? null : Border.all(color: Colors.grey.withOpacity(0.3)),
                           ),
                           child: Text(
                             msg['text'] ?? '',
                             style: TextStyle(
-                              color: isUser ? Colors.blue[900] : Colors.black87,
+                              color: isUser ? const Color(0xFF000000) : const Color(0xFF303030),
                               fontSize: 15,
                             ),
                           ),
@@ -892,13 +928,25 @@ class _AIDialogModalState extends State<AIDialogModal> {
                 const SizedBox(width: 8),
                 isSending
                     ? const SizedBox(
-                        width: 32,
-                        height: 32,
+                        width: 40,
+                        height: 40,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : IconButton(
-                        icon: const Icon(Icons.send, color: Colors.deepPurple),
-                        onPressed: isLoading ? null : _sendMessage,
+                    : GestureDetector(
+                        onTap: isLoading ? null : _sendMessage,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFA2BFA3),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.keyboard_arrow_up,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
                       ),
               ],
             ),
