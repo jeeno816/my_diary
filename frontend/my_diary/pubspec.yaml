@@ -20,6 +20,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.7
 
 flutter:
   uses-material-design: true
@@ -31,3 +33,22 @@ flutter:
     - family: MyDiaryFont
       fonts:
         - asset: assets/fonts/mydiaryfont.ttf
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/my_diary_logo.jpg"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/images/my_diary_logo.jpg"
+    background_color: "#FDFBF8"
+    theme_color: "#A2BFA3"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/my_diary_logo.jpg
+  android_12:
+    image: assets/images/my_diary_logo.jpg
+    color: "#FFFFFF"
+  web: false
